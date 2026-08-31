@@ -1,0 +1,38 @@
+# Env and secrets
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Python packaging
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Local MVP image storage
+uploads/
+backend/uploads/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Test / coverage
+.coverage
+htmlcov/
+coverage/
