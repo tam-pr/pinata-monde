@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
-import Link from "next/link";
+import { Raleway } from "next/font/google";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const raleway = Raleway({
+  variable: "--font-raleway",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "Piñata Monde",
-  description: "Piñatas personalizadas. Solicita una cotización.",
+  title: {
+    default: "Piñata Monde",
+    template: "%s · Piñata Monde",
+  },
+  description:
+    "Piñatas personalizadas hechas a mano. Cuéntanos tu idea y te ayudamos a convertirla en la pieza de la fiesta.",
 };
 
 export default function RootLayout({
@@ -20,26 +26,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} min-h-screen antialiased`}>
-        <header className="border-b border-border bg-card">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
-            <Link href="/" className="text-lg font-semibold tracking-tight">
-              Piñata Monde
-            </Link>
-            <nav className="flex gap-6 text-sm text-muted">
-              <Link href="/" className="hover:text-foreground">
-                Inicio
-              </Link>
-              <Link href="/cotizar" className="hover:text-foreground">
-                Cotizar
-              </Link>
-            </nav>
-          </div>
-        </header>
-        {children}
-        <footer className="border-t border-border px-4 py-8 text-center text-sm text-muted">
-          Piñata Monde — cotizaciones en línea (demo)
-        </footer>
+      <body className={`${raleway.variable} flex min-h-screen flex-col antialiased`}>
+        <a className="skip-link" href="#contenido">
+          Saltar al contenido
+        </a>
+        <SiteHeader />
+        <div id="contenido" className="flex-1">
+          {children}
+        </div>
+        <SiteFooter />
       </body>
     </html>
   );

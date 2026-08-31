@@ -1,28 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fff8f3;
-  --foreground: #3b1f1a;
-  --accent: #c23b4a;
-  --accent-dark: #9e2d3a;
-  --muted: #7a5348;
-  --card: #ffffff;
-  --border: #f0d4c8;
+  --navy: #262261;
+  --navy-70: #676490;
+  --navy-20: #d4d2df;
+  --magenta: #ec297b;
+  --magenta-70: #f169a3;
+  --magenta-20: #fbd4e5;
+  --paper: #fbf8fc;
+  --white: #ffffff;
+  --ink: #262261;
+  --ink-soft: #5e5683;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --container: 72rem;
+  --header-h: 4.5rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-accent: var(--accent);
-  --color-accent-dark: var(--accent-dark);
-  --color-muted: var(--muted);
-  --color-card: var(--card);
-  --color-border: var(--border);
-  --font-sans: var(--font-geist-sans);
+  --color-navy: var(--navy);
+  --color-navy-70: var(--navy-70);
+  --color-navy-20: var(--navy-20);
+  --color-magenta: var(--magenta);
+  --color-magenta-70: var(--magenta-70);
+  --color-magenta-20: var(--magenta-20);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --font-sans: var(--font-raleway);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-raleway), system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--navy);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--magenta);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 80;
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  padding: 0.5rem 1rem;
+  color: white;
+}
+
+.skip-link:focus {
+  top: 1rem;
 }
