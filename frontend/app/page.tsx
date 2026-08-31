@@ -1,8 +1,8 @@
 import { Button } from "@/components/Button";
 import { Container } from "@/components/Container";
-import { ProductCard } from "@/components/ProductCard";
+import { CatalogCategoryCard } from "@/components/CatalogCategoryCard";
 import { SectionHeading } from "@/components/SectionHeading";
-import { PINATA_THEMES } from "@/lib/themes";
+import { CATALOG_CATEGORIES } from "@/lib/catalog";
 
 const STEPS = [
   {
@@ -85,14 +85,12 @@ export default function Home() {
         <Container>
           <SectionHeading
             eyebrow="Catálogo"
-            title="Temas que más nos piden"
-            description="Partimos de estos mundos y los adaptamos a tu fiesta. Cada pieza se cotiza según tamaño, detalle y fecha."
+            title="Ideas para empezar a explorar"
+            description="Entra por un tema, revisa referencias de producto y elige una idea para llevar a cotización."
           />
-          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {PINATA_THEMES.map((theme, index) => (
-              <li key={theme.slug}>
-                <ProductCard theme={theme} index={index} />
-              </li>
+          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+            {CATALOG_CATEGORIES.map((category, index) => (
+              <li key={category.slug}><CatalogCategoryCard category={category} index={index} /></li>
             ))}
           </ul>
           <div className="mt-10">

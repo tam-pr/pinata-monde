@@ -5,7 +5,7 @@ import { CONTACT, NAV_LINKS } from "@/lib/nav";
 export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-navy-20 bg-white">
-      <Container className="grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-3">
+      <Container className="grid gap-10 py-12 sm:grid-cols-2 sm:gap-x-12 sm:gap-y-12 lg:grid-cols-[1.35fr_0.8fr_1fr] lg:py-14">
         <div>
           <Link href="/" className="inline-block">
             <span className="sr-only">Piñata Monde, ir al inicio</span>
@@ -16,14 +16,14 @@ export function SiteFooter() {
               className="h-11 w-auto"
             />
           </Link>
-          <p className="mt-4 max-w-xs text-sm text-ink-soft">
+          <p className="mt-4 max-w-sm text-sm leading-6 text-ink-soft">
             Piñatas personalizadas hechas a mano. Convertimos tu idea en la pieza
             de la fiesta.
           </p>
         </div>
         <div>
           <p className="text-sm font-semibold text-navy">Navegación</p>
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 space-y-2.5">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} className="text-sm text-ink-soft hover:text-magenta">
@@ -35,7 +35,7 @@ export function SiteFooter() {
         </div>
         <div>
           <p className="text-sm font-semibold text-navy">Contacto</p>
-          <ul className="mt-4 space-y-2 text-sm text-ink-soft">
+          <ul className="mt-4 space-y-2.5 text-sm text-ink-soft">
             <li>
               <a className="hover:text-magenta" href={`mailto:${CONTACT.email}`}>
                 {CONTACT.email}
@@ -55,7 +55,7 @@ export function SiteFooter() {
         </div>
       </Container>
       <div className="border-t border-navy-20">
-        <Container className="py-5 text-xs text-ink-soft">
+        <Container className="py-5 text-center text-xs text-ink-soft sm:text-left">
           Piñata Monde · Zona Metropolitana de Guadalajara
         </Container>
       </div>

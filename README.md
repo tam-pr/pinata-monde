@@ -9,9 +9,10 @@ This repository is a small monorepo. **Do not treat placeholder prices as real P
 | Piece | Status |
 | --- | --- |
 | Documentation | Yes |
-| Frontend shell + quote form (no API) | Yes |
+| Frontend shell + quote form | Yes |
 | Pricing engine + unit tests | Yes |
-| Backend API, DB, AI, Odoo, WhatsApp, admin auth, deploy | Not started |
+| Quote API + PostgreSQL persistence | Yes |
+| AI, Odoo, WhatsApp, admin auth, deploy | Not started |
 
 ## Layout
 
@@ -37,21 +38,46 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). Quote form: [http://localhost:3000/cotizar](http://localhost:3000/cotizar).
 
-The form does **not** persist quotes yet. Submit shows a local confirmation only.
+Set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` before submitting a quote to
+the API (see the configuration section below).
 
-## Pricing engine
+## Backend API and database
 
 ```bash
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# Copy the repository example, then set DATABASE_URL to your local PostgreSQL database.
+cp ../.env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload
+```
+
+The backend is available at `http://localhost:8000`; health check:
+`GET /health`. The quote endpoint accepts multipart form data at `POST /quotes`.
+Uploaded JPEG, PNG, and WebP reference images are stored locally under
+`backend/uploads/` and are ignored by git.
+
+Run the backend tests with:
+
+```bash
+cd backend
+source .venv/bin/activate
 python -m pytest
 ```
 
+For local PostgreSQL, create an empty database using your preferred PostgreSQL
+installation, then set `DATABASE_URL` in `backend/.env`; Alembic creates the
+tables with the command above. No manual table SQL is required.
+
 ## Configuration
 
-See `.env.example`. Integrations default to mocks (`ODOO_MOCK=true`, `WHATSAPP_MOCK=true`, `CLASSIFIER_BACKEND=mock`) when those phases are built.
+See `.env.example`. Configure `DATABASE_URL`, `FRONTEND_ORIGIN`, and
+`NEXT_PUBLIC_API_URL` for local development. Integrations default to mocks
+(`ODOO_MOCK=true`, `WHATSAPP_MOCK=true`, `CLASSIFIER_BACKEND=mock`) when those
+phases are built.
 
 ## Docs
 

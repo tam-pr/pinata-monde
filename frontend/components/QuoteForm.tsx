@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/Button";
+import { createQuote, type CreatedQuote } from "@/lib/api";
 import {
   ACCEPTED_IMAGE_ACCEPT,
   isAllowedImageFile,
@@ -56,6 +57,9 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
   const [fileError, setFileError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitted, setSubmitted] = useState(false);
+  const [quote, setQuote] = useState<CreatedQuote | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
 
   useEffect(() => {
@@ -108,16 +112,40 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
     return errors;
   }
 
-  function onSubmit(event: React.FormEvent) {
+  async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     const errors = validate();
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
-    setSubmitted(true);
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    const payload = new FormData();
+    payload.set("customer_name", form.name.trim());
+    payload.set("phone", form.phone.trim());
+    payload.set("email", form.email.trim());
+    payload.set("theme", form.theme.trim());
+    payload.set("size", form.size);
+    payload.set("quantity", form.quantity);
+    payload.set("deadline", form.deadline);
+    payload.set("delivery_method", form.shipping);
+    payload.set("description", form.description.trim());
+    payload.set("source", "web");
+    for (const file of files) payload.append("images", file);
+
+    try {
+      const createdQuote = await createQuote(payload);
+      setQuote(createdQuote);
+      setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "No pudimos enviar tu solicitud.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const fieldClass =
-    "mt-2 w-full rounded-[var(--radius-sm)] border border-navy-20 bg-white px-3 py-2.5 text-sm text-navy outline-none transition-colors focus:border-magenta";
+    "mt-2 min-h-11 w-full rounded-[var(--radius-sm)] border border-navy-20 bg-white px-3 py-2.5 text-base text-navy outline-none transition-colors focus:border-magenta sm:text-sm";
   const errorClass = "mt-1.5 text-sm text-magenta";
 
   if (submitted) {
@@ -128,11 +156,14 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
         </p>
         <h2 className="mt-3 text-2xl">Recibimos tus datos</h2>
         <p className="mt-3 text-ink-soft">
-          Esta pantalla es solo local: todavía no enviamos la cotización ni
-          calculamos el precio. Cuando el sistema esté conectado, usaremos estos
-          mismos datos.
+          Tu solicitud quedó registrada. El monto es una estimación inicial con
+          reglas de precio provisionales; el equipo confirmará los detalles.
         </p>
         <dl className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-ink-soft">Folio</dt>
+            <dd className="break-all font-medium">{quote?.id}</dd>
+          </div>
           <div>
             <dt className="text-ink-soft">Nombre</dt>
             <dd className="font-medium">{form.name}</dd>
@@ -150,6 +181,12 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
             </dd>
           </div>
           <div>
+            <dt className="text-ink-soft">Estimación inicial</dt>
+            <dd className="font-medium">
+              {quote ? new Intl.NumberFormat("es-MX", { style: "currency", currency: quote.currency }).format(quote.estimated_price_cents / 100) : ""}
+            </dd>
+          </div>
+          <div>
             <dt className="text-ink-soft">Referencias</dt>
             <dd className="font-medium">{files.length} imagen(es)</dd>
           </div>
@@ -164,6 +201,8 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
             setFiles([]);
             setFieldErrors({});
             setFileError(null);
+            setQuote(null);
+            setSubmitError(null);
           }}
         >
           Enviar otra solicitud
@@ -268,7 +307,7 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
         </p>
         <label
           htmlFor={fileInputId}
-          className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70 bg-paper px-4 py-10 text-center hover:border-magenta hover:bg-magenta-20"
+          className="mt-6 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70 bg-paper px-4 py-8 text-center transition-colors hover:border-magenta hover:bg-magenta-20 sm:py-10"
           onDragOver={(event) => event.preventDefault()}
           onDrop={(event) => {
             event.preventDefault();
@@ -372,9 +411,10 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
         </label>
       </fieldset>
 
+      {submitError ? <p role="alert" className="text-sm text-magenta">{submitError}</p> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button type="submit" size="lg">
-          Solicitar cotización
+        <Button type="submit" size="lg" disabled={isSubmitting}>
+          {isSubmitting ? "Enviando solicitud…" : "Solicitar cotización"}
         </Button>
         <p className="text-sm text-ink-soft">Sin compromiso de pago en este paso.</p>
       </div>

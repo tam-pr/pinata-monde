@@ -47,6 +47,10 @@ body {
   line-height: 1.65;
 }
 
+img {
+  max-width: 100%;
+}
+
 h1,
 h2,
 h3 {

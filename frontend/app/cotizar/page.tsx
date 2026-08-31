@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { QuoteForm } from "@/components/QuoteForm";
 import { Container } from "@/components/Container";
 
@@ -10,10 +11,12 @@ export const metadata: Metadata = {
 export default async function CotizarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tema?: string }>;
+  searchParams: Promise<{ tema?: string; producto?: string }>;
 }) {
   const params = await searchParams;
   const theme = params.tema?.trim() ?? "";
+  const product = params.producto?.trim() ?? "";
+  const selection = [theme, product].filter(Boolean).join(" · ");
 
   return (
     <main className="py-12 sm:py-16">
@@ -23,12 +26,14 @@ export default async function CotizarPage({
         </p>
         <h1 className="mt-3 text-3xl sm:text-4xl">Cotiza tu piñata</h1>
         <p className="mt-4 max-w-2xl text-ink-soft">
-          Completa los bloques a tu ritmo. El precio y la complejidad se
-          conectarán más adelante; por ahora guardamos la experiencia en tu
-          navegador.
+          Completa los bloques a tu ritmo. Al enviarla, registraremos tu solicitud
+          y calcularemos una estimación inicial para que el equipo afine los detalles.
+        </p>
+        <p className="mt-5 rounded-[var(--radius-md)] border border-navy-20 bg-white p-4 text-sm text-ink-soft">
+          ¿Buscas inspiración? <Link href="/catalogo" className="font-semibold text-magenta hover:underline">Explora el catálogo</Link> antes de enviar tu solicitud.
         </p>
         <div className="mt-10">
-          <QuoteForm key={theme} initialTheme={theme} />
+          <QuoteForm key={selection} initialTheme={selection} />
         </div>
       </Container>
     </main>
