@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/Button";
 import { Container } from "@/components/Container";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -11,48 +13,66 @@ export const metadata: Metadata = {
 const PLACEHOLDER_COLLABORATIONS = [
   {
     title: "Kido: Kids Company",
-    description: 
+    description:
       "[Contenido pendiente] Espacio para presentar una colaboración futura, su idea y la pieza desarrollada en conjunto.",
+    url: "https://kidokids.com/", // ← replace with the real sponsor URL
+    image: "/collabs/kido.webp",       // ← put the logo/image file here
   },
   {
     title: "Calaverandia",
     description:
       "[Contenido pendiente] Aquí podrá mostrarse una activación, fiesta o experiencia especial realizada con Piñata Monde.",
+    url: "https://www.alteaemotions.com/calaverandia.php",
+    image: "/collabs/Logotipo_Calaverandia-2.webp",
   },
   {
     title: "Navidalia",
     description:
       "[Contenido pendiente] Lugar reservado para proyectos que conecten creatividad, oficio y comunidad.",
+    url: "https://navidalia.mx/guadalajara/informacion/",
+    image: "/collabs/Logo-Navidalia.webp",
   },
   {
     title: "RCD Hotels",
     description:
       "[Contenido pendiente] Espacio reservado para una colaboración con una marca aliada y la pieza resultante.",
+    url: "https://www.pamhotels.com/",
+    image: "/collabs/logo-rcd-hotels.webp",
   },
   {
     title: "Rosewood Hotels & Resorts",
     description:
       "[Contenido pendiente] Lugar para mostrar una pieza o colección desarrollada para una ocasión particular.",
+    url: "https://www.rosewoodhotels.com/en/default",
+    image: "/collabs/rosewood-hotel-resorts-removebg-preview.png",
   },
   {
     title: "Just Jump",
     description:
       "[Contenido pendiente] Espacio para una colaboración enfocada en exploración creativa y diseño.",
+    url: "https://www.justjump.com.mx/",
+    image: "/collabs/just-jump-removebg-preview.png",
   },
   {
     title: "de la Rosa",
     description:
       "[Contenido pendiente] Lugar reservado para una experiencia o activación ligada a un momento cultural.",
+    url: "https://dulcesdelarosa.com.mx/",
+    image: "/collabs/dulces-de-la-rosa_marca-2.webp",
   },
   {
     title: "Kiddie latte joy",
     description:
       "[Contenido pendiente] Espacio para mostrar una colaboración con medios, publicaciones o creadores de contenido.",
+    url: "https://www.kiddielattejoy.com/",
+    image: "/collabs/kiddielattejoy.png",
   },
   {
     title: "Horneando Sonrisas A.C.",
     description:
       "[Contenido pendiente] Lugar reservado para una iniciativa realizada junto a una organización o comunidad local.",
+    url: "https://horneandosonrisas.org/",
+    image: "/collabs/horneandosonrisas}.png",
   },
 ];
 
@@ -82,17 +102,39 @@ export default function ColaboracionesPage() {
           />
           <ul className="mt-9 grid gap-5 md:grid-cols-3 sm:mt-10 sm:gap-6">
             {PLACEHOLDER_COLLABORATIONS.map((collaboration, index) => (
-              <li key={collaboration.title} className="overflow-hidden rounded-[var(--radius-lg)] border border-navy-20 bg-white">
-                <div className="flex aspect-[16/9] items-center justify-center bg-paper p-6">
-                  <div className="flex h-full w-full items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70/60 bg-white px-4 text-center">
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-navy-70">Logo o imagen {index + 1}</span>
+              <li
+                key={collaboration.title}
+                className="overflow-hidden rounded-[var(--radius-lg)] border border-navy-20 bg-white transition-shadow hover:shadow-md"
+              >
+                <Link
+                  href={collaboration.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-magenta"
+                >
+                  <div className="flex aspect-[16/9] items-center justify-center bg-paper p-6">
+                    {collaboration.image ? (
+                      <Image
+                        src={collaboration.image}
+                        alt={collaboration.title}
+                        width={300}
+                        height={169}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70/60 bg-white px-4 text-center">
+                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-navy-70">
+                          Logo o imagen {index + 1}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="p-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-magenta">holi</p>
-                  <h2 className="mt-3 text-xl">{collaboration.title}</h2>
-                  <p className="mt-3 text-sm leading-6 text-ink-soft">{collaboration.description}</p>
-                </div>
+                  <div className="p-6">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-magenta">placeholder</p>
+                    <h2 className="mt-3 text-xl">{collaboration.title}</h2>
+                    <p className="mt-3 text-sm leading-6 text-ink-soft">{collaboration.description}</p>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

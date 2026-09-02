@@ -1,85 +1,193 @@
-# Piñata Monde — digital platform
+# pinata-monde
+# Piñata Monde Digital Platform
 
-Demo platform for custom piñata quotes: website (and later WhatsApp) → complexity estimate → price estimate → CRM lead → admin inbox.
+A modern redesign of the Piñata Monde website focused on improving the customer quotation process and connecting customer interactions with Odoo CRM.
 
-This repository is a small monorepo. **Do not treat placeholder prices as real Piñata Monde tariffs.**
+## Project Goal
 
-## Current checkpoint
+Transform the current Piñata Monde website into a digital sales platform where customers can:
 
-| Piece | Status |
-| --- | --- |
-| Documentation | Yes |
-| Frontend shell + quote form | Yes |
-| Pricing engine + unit tests | Yes |
-| Quote API + PostgreSQL persistence | Yes |
-| AI, Odoo, WhatsApp, admin auth, deploy | Not started |
+* Browse Piñata Monde products
+* Request custom piñatas
+* Upload a reference/inspiration image
+* Estimate the price of a custom design
+* Receive an AI-assisted design complexity estimate
+* Continue the quotation process through WhatsApp
 
-## Layout
+The business should be able to:
+
+* Receive customer inquiries through the website and WhatsApp
+* Automatically create/manage leads in Odoo CRM
+* View quotation information and customer requests
+* View reference images associated with leads
+* Manage relevant CRM information through a Piñata Monde-branded admin interface
+
+## Core Architecture
 
 ```text
-frontend/   Next.js (marketing + quote UI)
-backend/    Python (pricing engine first; API later)
-ml/         Classifier backends (mock later; not wired yet)
-docs/       Architecture and demo notes
+                         CUSTOMER
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+              ▼                           ▼
+          WEBSITE                      WHATSAPP
+              │                           │
+              └─────────────┬─────────────┘
+                            ▼
+                         FASTAPI
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+              ▼             ▼             ▼
+             AI        PRICE ENGINE      ODOO
+              │                           │
+              ▼                           ▼
+        COMPLEXITY                    CRM / SALES
+                                          │
+                                          ▼
+                                   ADMIN DASHBOARD
 ```
 
-## Prerequisites
+## Main Components
 
-- Node.js 20+
-- Python 3.12+ (3.11 is fine)
+### Frontend
 
-## Frontend
+Customer-facing website and Piñata Monde admin interface.
 
-```bash
-cd frontend
-npm install
-npm run dev
+**Technologies:**
+
+* Next.js
+* React
+* Tailwind CSS
+
+### Backend
+
+API and integration layer between the frontend, AI system, WhatsApp, and Odoo.
+
+**Technologies:**
+
+* Python
+* FastAPI
+* Pydantic
+
+### Database
+
+Application-specific persistent data.
+
+**Technology:**
+
+* PostgreSQL
+
+Odoo remains the source of truth for CRM and business operations.
+
+### AI
+
+Estimates the manufacturing/design complexity of a customer's reference image.
+
+**Initial approach:**
+
+```text
+Reference Image
+      ↓
+Pretrained Vision Model
+      ↓
+Image Embedding
+      ↓
+Logistic Regression
+      ↓
+Simple / Medium / Complex
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Quote form: [http://localhost:3000/cotizar](http://localhost:3000/cotizar).
+The AI does not determine the final price.
 
-Set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` before submitting a quote to
-the API (see the configuration section below).
+### Pricing Engine
 
-## Backend API and database
+Combines business-defined inputs:
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Copy the repository example, then set DATABASE_URL to your local PostgreSQL database.
-cp ../.env.example .env
-alembic upgrade head
-uvicorn app.main:app --reload
+```text
+Size
++ Quantity
++ Design Complexity
++ Deadline / Timeframe
++ Shipping
+↓
+Estimated Price
 ```
 
-The backend is available at `http://localhost:8000`; health check:
-`GET /health`. The quote endpoint accepts multipart form data at `POST /quotes`.
-Uploaded JPEG, PNG, and WebP reference images are stored locally under
-`backend/uploads/` and are ignored by git.
+### WhatsApp
 
-Run the backend tests with:
+Provides a customer communication and quotation channel.
 
-```bash
-cd backend
-source .venv/bin/activate
-python -m pytest
+```text
+Customer
+   ↓
+WhatsApp
+   ↓
+WhatsApp Business API
+   ↓
+FastAPI
+   ↓
+Odoo CRM
 ```
 
-For local PostgreSQL, create an empty database using your preferred PostgreSQL
-installation, then set `DATABASE_URL` in `backend/.env`; Alembic creates the
-tables with the command above. No manual table SQL is required.
+### Odoo
 
-## Configuration
+Used for:
 
-See `.env.example`. Configure `DATABASE_URL`, `FRONTEND_ORIGIN`, and
-`NEXT_PUBLIC_API_URL` for local development. Integrations default to mocks
-(`ODOO_MOCK=true`, `WHATSAPP_MOCK=true`, `CLASSIFIER_BACKEND=mock`) when those
-phases are built.
+* CRM leads
+* Customers
+* Opportunities
+* Quotations
+* Orders
+* Products
+* Inventory
 
-## Docs
+### Admin Portal
 
-- `guidelines.md` — how we work in this repo
-- `docs/architecture.md` — system design and MVP boundaries
+A Piñata Monde-branded interface for viewing relevant Odoo CRM/sales information.
+
+The project should not attempt to recreate the entire Odoo ERP.
+
+## Repository Structure
+
+```text
+pinata-monde/
+│
+├── README.md
+├── guidelines.md
+├── .gitignore
+├── .env.example
+│
+├── docs/
+│   └── architecture.md
+│
+├── frontend/
+├── backend/
+└── ml/
+```
+
+## Development Priority
+
+1. Customer-facing website
+2. Quote/price estimator
+3. Backend API
+4. AI complexity classifier
+5. Odoo integration
+6. WhatsApp integration
+7. Admin dashboard
+8. End-to-end demo
+
+## Project Scope
+
+This is primarily a functional demonstration/prototype.
+
+Prioritize:
+
+* Working end-to-end flows
+* Good UX/UI
+* Reliable demonstrations
+* Simple architecture
+* Clear separation of responsibilities
+
+Do not introduce enterprise-level infrastructure unless it is necessary.
+
