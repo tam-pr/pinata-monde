@@ -180,6 +180,61 @@ A Piñata Monde-branded interface for viewing relevant Odoo CRM/sales informatio
 
 The project should not attempt to recreate the entire Odoo ERP.
 
+## Running Locally
+
+Requires Python 3.11+, Node.js 20+, and a running PostgreSQL instance.
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Copy `.env.example` to `backend/.env` and set at least `DATABASE_URL`. To use `/admin`, also set `ADMIN_USERNAME` / `ADMIN_PASSWORD` there — the backend seeds that one admin user on startup (see [`backend/app/auth.py`](backend/app/auth.py)). Leaving them unset keeps `/admin` locked.
+
+```bash
+alembic upgrade head
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Runs at `http://127.0.0.1:8000` (health check: `/health`).
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+```
+
+Create `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+Use `localhost`, not `127.0.0.1` — the `/admin` session cookie is `SameSite=Lax`, and browsers treat those as different sites, which silently drops the cookie.
+
+```bash
+npm run dev
+```
+
+Runs at `http://localhost:3000`. Log in at `/admin/login` with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` you set above.
+
+### Sharing your local instance (ngrok)
+
+To give someone a public URL to your local frontend:
+
+```bash
+ngrok http 3000
+```
+
+This needs an ngrok authtoken configured once via `ngrok config add-authtoken YOUR_TOKEN` (from [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)) — it's stored in ngrok's own config (`~/Library/Application Support/ngrok/ngrok.yml` on macOS), never in this repo.
+
+A free ngrok account gets one public hostname. That's enough to show the static pages (home, `/catalogo`, `/nosotros`, `/contacto`) to anyone with the link. Pages that call the backend API from the browser — `/cotizar` and `/admin` — will only work for you, since `NEXT_PUBLIC_API_URL` still points at your machine's `localhost:8000`, which isn't reachable from someone else's browser.
+
 ## Repository Structure
 
 ```text
