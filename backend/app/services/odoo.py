@@ -111,14 +111,34 @@ def _parse_create_response(result: object) -> str:
     return str(record_id)
 
 
-def create_crm_lead(*, quote, settings: Settings, price_estimate=None) -> OdooLead:
-    """Create one CRM lead after owner approval. Caller persists the returned ID.
+def _get_or_create_utm_source_id(settings: Settings, name: str) -> int:
+    """Look up a CRM `utm.source` by name, creating it if it doesn't exist yet.
+
+    Odoo's crm.lead.source_id is a many2one to utm.source, so lead creation
+    needs a numeric id, not a label. This reuses the same JSON-2 transport
+    (_json2_call) as every other Odoo call in this module — no new
+    integration, just the standard get-or-create for a reference record.
+    """
+    found = _json2_call(settings, "utm.source", "search_read", {"domain": [["name", "=", name]], "fields": ["id"], "limit": 1})
+    if isinstance(found, list) and found:
+        return int(found[0]["id"])
+    result = _json2_call(settings, "utm.source", "create", {"vals_list": [{"name": name}]})
+    return int(_parse_create_response(result))
+
+
+def create_crm_lead(*, quote, settings: Settings, price_estimate=None, source_label: str | None = None) -> OdooLead:
+    """Create one CRM lead after owner approval, or after a WhatsApp order click.
+    Caller persists the returned ID.
 
     ODOO_MOCK=true returns an idempotent local mock lead. ODOO_MOCK=false
     creates exactly one real crm.lead via Odoo's JSON-2 API. Callers (see
-    app/main.py review_quote) only call this once per quote — when
-    quote.odoo_lead_id is not already set — so a repeated approval never
-    creates a duplicate lead.
+    app/main.py review_quote and record_whatsapp_click) only call this once
+    per quote — when quote.odoo_lead_id is not already set — so repeated
+    approvals or repeated WhatsApp clicks never create a duplicate lead.
+
+    `source_label` (e.g. "WhatsApp") sets the CRM lead's Source field
+    (utm.source, looked up/created by name). Omit it to leave Source unset,
+    which keeps the existing owner-approval flow's leads unchanged.
     """
     payload = {
         "name": _lead_name(quote),
@@ -132,6 +152,8 @@ def create_crm_lead(*, quote, settings: Settings, price_estimate=None) -> OdooLe
     }
 
     if settings.odoo_mock:
+        if source_label:
+            payload["source_id"] = source_label
         lead_id = f"mock-{quote.id}"
         logger.info("Mock Odoo CRM lead created: %s payload=%s", lead_id, payload)
         return OdooLead(lead_id, "created_mock")
@@ -139,6 +161,9 @@ def create_crm_lead(*, quote, settings: Settings, price_estimate=None) -> OdooLe
     missing = _missing_json2_config(settings)
     if missing:
         raise RuntimeError(f"Odoo credentials must be configured when ODOO_MOCK=false. Missing: {', '.join(missing)}.")
+
+    if source_label:
+        payload["source_id"] = _get_or_create_utm_source_id(settings, source_label)
 
     result = _json2_call(settings, "crm.lead", "create", {"vals_list": [payload]})
     lead_id = _parse_create_response(result)

@@ -2,13 +2,14 @@
 
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/Button";
-import { createQuote, type CreatedQuote } from "@/lib/api";
+import { createQuote, recordWhatsAppOrderClick, type CreatedQuote } from "@/lib/api";
 import {
   ACCEPTED_IMAGE_ACCEPT,
   isAllowedImageFile,
   MAX_IMAGE_BYTES,
   MAX_IMAGES_PER_QUOTE,
 } from "@/lib/quoteImages";
+import { buildWhatsAppOrderLink } from "@/lib/whatsapp";
 
 const SIZES = [
   { value: "chica", label: "Chica · 30 cm (Centro de mesa)" },
@@ -158,6 +159,27 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
     }
   }
 
+  function handleWhatsAppOrder() {
+    if (!quote) return;
+    const url = buildWhatsAppOrderLink({
+      name: form.name,
+      theme: form.theme,
+      sizeLabel: SIZES.find((size) => size.value === form.size)?.label ?? form.size,
+      quantity: form.quantity,
+      shipping: form.shipping,
+      deadline: form.deadline,
+      isExpress: isExpressDeadline(form.deadline),
+      needsStick: form.needsStick,
+      priceCents: quote.estimated_price_cents,
+      currency: quote.currency,
+      folio: quote.id,
+    });
+    // Open synchronously, on the click itself, so popup blockers don't
+    // interfere — the backend call below doesn't gate the WhatsApp chat.
+    window.open(url, "_blank", "noopener,noreferrer");
+    void recordWhatsAppOrderClick(quote.id);
+  }
+
   const fieldClass =
     "mt-2 min-h-11 w-full rounded-[var(--radius-sm)] border border-navy-20 bg-white px-3 py-2.5 text-base text-navy outline-none transition-colors focus:border-magenta sm:text-sm";
   const errorClass = "mt-1.5 text-sm text-magenta";
@@ -214,22 +236,26 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
           Si deseas cancelar la compra, se puede hacer únicamente con 24 horas de
           anticipación. Si lo haces en menos tiempo, no hay reembolso.
         </p>
-        <Button
-          type="button"
-          variant="secondary"
-          className="mt-8"
-          onClick={() => {
-            setSubmitted(false);
-            setForm(emptyForm(""));
-            setFiles([]);
-            setFieldErrors({});
-            setFileError(null);
-            setQuote(null);
-            setSubmitError(null);
-          }}
-        >
-          Enviar otra solicitud
-        </Button>
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button type="button" size="lg" onClick={handleWhatsAppOrder}>
+            Ordenar por WhatsApp
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setSubmitted(false);
+              setForm(emptyForm(""));
+              setFiles([]);
+              setFieldErrors({});
+              setFileError(null);
+              setQuote(null);
+              setSubmitError(null);
+            }}
+          >
+            Enviar otra solicitud
+          </Button>
+        </div>
       </div>
     );
   }

@@ -47,6 +47,19 @@ export async function createQuote(formData: FormData): Promise<CreatedQuote> {
   return response.json() as Promise<CreatedQuote>;
 }
 
+/**
+ * Fire-and-forget: records the "Ordenar por WhatsApp" click and creates the
+ * matching Odoo lead. Never throws — the WhatsApp chat already opened via a
+ * plain wa.me link regardless of this call's outcome.
+ */
+export async function recordWhatsAppOrderClick(id: string): Promise<void> {
+  try {
+    await fetch(apiUrl(`/quotes/${id}/whatsapp-click`), { method: "POST" });
+  } catch {
+    // Best-effort only; see docstring above.
+  }
+}
+
 export async function getReviewQuotes(): Promise<ReviewQuote[]> {
   const response = await fetch(apiUrl("/admin/quotes"), { cache: "no-store", credentials: "include" });
   if (response.status === 401) throw new AdminAuthError();

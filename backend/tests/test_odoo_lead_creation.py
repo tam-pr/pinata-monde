@@ -80,6 +80,58 @@ def test_lead_name_falls_back_when_theme_missing():
     assert _lead_name(quote) == "Ana López_Sin tema"
 
 
+def test_mock_creation_with_source_label_sets_source_id_to_the_label(monkeypatch):
+    captured_payload = {}
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("mock mode must never call the Odoo API")
+
+    monkeypatch.setattr(odoo_service, "_json2_call", _fail)
+
+    def _capture_log(msg, lead_id, payload):
+        captured_payload.update(payload)
+
+    monkeypatch.setattr(odoo_service.logger, "info", _capture_log)
+
+    lead = create_crm_lead(quote=_FakeQuote(), settings=_settings(odoo_mock=True), source_label="WhatsApp")
+
+    assert lead == OdooLead("mock-test-quote-id", "created_mock")
+    assert captured_payload["source_id"] == "WhatsApp"
+
+
+def test_mock_creation_without_source_label_omits_source_id(monkeypatch):
+    captured_payload = {}
+    monkeypatch.setattr(odoo_service, "_json2_call", lambda *a, **k: (_ for _ in ()).throw(AssertionError("no network in mock mode")))
+    monkeypatch.setattr(odoo_service.logger, "info", lambda msg, lead_id, payload: captured_payload.update(payload))
+
+    create_crm_lead(quote=_FakeQuote(), settings=_settings(odoo_mock=True))
+
+    assert "source_id" not in captured_payload
+
+
+def test_real_creation_resolves_source_label_to_a_utm_source_id(monkeypatch):
+    calls = []
+
+    def _fake_json2_call(settings, model, method, body=None):
+        calls.append((model, method, body))
+        if model == "utm.source" and method == "search_read":
+            return []  # not found -> must create it
+        if model == "utm.source" and method == "create":
+            return [{"id": 77}]
+        if model == "crm.lead" and method == "create":
+            return [{"id": 501}]
+        raise AssertionError(f"unexpected call: {model}.{method}")
+
+    monkeypatch.setattr(odoo_service, "_json2_call", _fake_json2_call)
+    settings = _settings(odoo_mock=False, odoo_url="https://example.odoo.com", odoo_api_key="fake-key")
+
+    lead = create_crm_lead(quote=_FakeQuote(), settings=settings, source_label="WhatsApp")
+
+    assert lead == OdooLead("501", "created")
+    lead_create_call = next(call for call in calls if call[0] == "crm.lead" and call[1] == "create")
+    assert lead_create_call[2]["vals_list"][0]["source_id"] == 77
+
+
 def test_odoo_failure_raises_and_never_silently_succeeds(monkeypatch):
     def _raise(*args, **kwargs):
         raise OdooConnectionError("Odoo JSON-2 API error (500): temporary outage")

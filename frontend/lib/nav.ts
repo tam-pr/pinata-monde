@@ -9,8 +9,8 @@ export const NAV_LINKS = [
 
 export const CONTACT = {
   email: "ventas@piñatamonde.com",
-  phoneDisplay: "33 2154 5735",
-  phoneHref: "tel:+523321545735",
+  phoneDisplay: "311 229 8083",
+  phoneHref: "tel:+523112298083",
 } as const;
 
 export const SOCIAL_LINKS = [

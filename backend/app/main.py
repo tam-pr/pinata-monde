@@ -255,6 +255,28 @@ def list_quotes_for_review(db: Session = Depends(get_db), _admin: AdminUser = De
     return db.query(Quote).options(selectinload(Quote.images)).order_by(Quote.created_at.desc()).all()
 
 
+@app.post("/quotes/{quote_id}/whatsapp-click", response_model=QuoteResponse)
+def record_whatsapp_click(quote_id: str, db: Session = Depends(get_db)) -> Quote:
+    """Record that the customer clicked "Ordenar por WhatsApp" by tagging the
+    existing quote's source as WhatsApp — it does not create a new quote, a
+    new Odoo lead, or change the quote's pending_review status.
+
+    The click only records intent (the WhatsApp chat opens client-side via a
+    plain wa.me link, with no way to confirm the message was sent). The Odoo
+    lead is created once, on admin approval (see review_quote), which reads
+    this source to tag the lead accordingly — so repeated clicks are a no-op
+    beyond the first one.
+    """
+    quote = db.query(Quote).options(selectinload(Quote.images)).filter(Quote.id == quote_id).one_or_none()
+    if quote is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found.")
+    if quote.source != "whatsapp":
+        quote.source = "whatsapp"
+        db.commit()
+        db.refresh(quote)
+    return quote
+
+
 @app.patch("/admin/quotes/{quote_id}/review", response_model=QuoteResponse)
 def review_quote(
     quote_id: str, review: QuoteReviewRequest, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin),
@@ -282,7 +304,8 @@ def review_quote(
         db.commit()
         db.refresh(quote)
         if not quote.odoo_lead_id:
-            lead = create_crm_lead(quote=quote, settings=get_settings(), price_estimate=suggested)
+            source_label = "WhatsApp" if quote.source == "whatsapp" else "Website"
+            lead = create_crm_lead(quote=quote, settings=get_settings(), price_estimate=suggested, source_label=source_label)
             quote.odoo_lead_id = lead.lead_id
             quote.odoo_status = lead.status
         db.commit()

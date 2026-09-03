@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import get_settings
 from app.db import Base
 from app.main import app
+from app.services import odoo as odoo_service
 
 
 ADMIN_TEST_USERNAME = "admin"
@@ -20,6 +21,9 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
     monkeypatch.setenv("ADMIN_USERNAME", ADMIN_TEST_USERNAME)
     monkeypatch.setenv("ADMIN_PASSWORD", ADMIN_TEST_PASSWORD)
+    # Force the local mock adapter so this suite never calls the real Odoo
+    # API, regardless of what backend/.env has configured for manual runs.
+    monkeypatch.setenv("ODOO_MOCK", "true")
     get_settings.cache_clear()
     # SQLite in-memory requests must share the same connection.
     from sqlalchemy import create_engine
@@ -122,6 +126,92 @@ def test_owner_review_keeps_ai_prediction_and_creates_one_mock_odoo_lead(client:
     retry = client.patch(f"/admin/quotes/{original['id']}/review", json={})
     assert retry.status_code == 200
     assert retry.json()["odoo_lead_id"] == body["odoo_lead_id"]
+
+
+def test_create_quote_never_creates_an_odoo_lead(client: TestClient):
+    created = client.post("/quotes", data=quote_payload())
+    assert created.status_code == 201
+    body = created.json()
+    assert body["status"] == "pending_review"
+    assert body["odoo_lead_id"] is None
+
+
+def test_whatsapp_click_tags_the_same_quote_without_creating_a_lead(client: TestClient):
+    created = client.post("/quotes", data=quote_payload())
+    assert created.status_code == 201
+    quote_id = created.json()["id"]
+
+    response = client.post(f"/quotes/{quote_id}/whatsapp-click")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == quote_id  # same quote, not a new one
+    assert body["source"] == "whatsapp"
+    assert body["status"] == "pending_review"  # a WhatsApp click never approves the quote
+    assert body["odoo_lead_id"] is None  # no Odoo lead until admin approval
+
+    # No other quote was created as a side effect of the click.
+    assert len(client.get("/admin/quotes").json()) == 1
+
+
+def test_whatsapp_click_is_idempotent_across_repeated_clicks(client: TestClient):
+    created = client.post("/quotes", data=quote_payload())
+    quote_id = created.json()["id"]
+
+    first = client.post(f"/quotes/{quote_id}/whatsapp-click")
+    second = client.post(f"/quotes/{quote_id}/whatsapp-click")
+    third = client.post(f"/quotes/{quote_id}/whatsapp-click")
+    assert first.status_code == second.status_code == third.status_code == 200
+    assert first.json()["id"] == second.json()["id"] == third.json()["id"] == quote_id
+    assert first.json()["source"] == second.json()["source"] == third.json()["source"] == "whatsapp"
+    assert third.json()["odoo_lead_id"] is None
+
+    all_quotes = client.get("/admin/quotes").json()
+    assert len(all_quotes) == 1
+
+
+def test_whatsapp_click_on_missing_quote_returns_404(client: TestClient):
+    response = client.post("/quotes/not-a-quote/whatsapp-click")
+    assert response.status_code == 404
+
+
+def test_approving_a_whatsapp_clicked_quote_creates_exactly_one_lead_tagged_whatsapp(client: TestClient, monkeypatch):
+    created = client.post("/quotes", data=quote_payload())
+    quote_id = created.json()["id"]
+    clicked = client.post(f"/quotes/{quote_id}/whatsapp-click")
+    assert clicked.json()["source"] == "whatsapp"
+    assert clicked.json()["odoo_lead_id"] is None  # confirms the lead is created below, on approval
+
+    captured_payloads = []
+    monkeypatch.setattr(odoo_service.logger, "info", lambda msg, lead_id, payload: captured_payloads.append(payload))
+
+    reviewed = client.patch(f"/admin/quotes/{quote_id}/review", json={"final_price_cents": 210000})
+    assert reviewed.status_code == 200
+    body = reviewed.json()
+    assert body["status"] == "approved"
+    assert body["odoo_lead_id"] == f"mock-{quote_id}"
+    assert len(captured_payloads) == 1
+    assert captured_payloads[0]["source_id"] == "WhatsApp"
+    assert captured_payloads[0]["name"] == "Ana López_Dinosaurio azul"
+
+    # Approving again must not create a second lead.
+    retry = client.patch(f"/admin/quotes/{quote_id}/review", json={})
+    assert retry.status_code == 200
+    assert retry.json()["odoo_lead_id"] == body["odoo_lead_id"]
+    assert len(captured_payloads) == 1  # create_crm_lead was not called again
+
+
+def test_approving_a_normal_website_quote_tags_the_lead_website(client: TestClient, monkeypatch):
+    created = client.post("/quotes", data=quote_payload())
+    quote_id = created.json()["id"]
+    assert created.json()["source"] == "web"
+
+    captured_payloads = []
+    monkeypatch.setattr(odoo_service.logger, "info", lambda msg, lead_id, payload: captured_payloads.append(payload))
+
+    reviewed = client.patch(f"/admin/quotes/{quote_id}/review", json={"final_price_cents": 175500})
+    assert reviewed.status_code == 200
+    assert reviewed.json()["odoo_lead_id"] == f"mock-{quote_id}"
+    assert captured_payloads[0]["source_id"] == "Website"
 
 
 def test_price_breakdown_is_available_before_review(client: TestClient):
