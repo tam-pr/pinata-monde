@@ -23,11 +23,12 @@ class Settings(BaseSettings):
     def frontend_origins(self) -> list[str]:
         return [origin.strip() for origin in self.frontend_origin.split(",") if origin.strip()]
     ml_backend: str = "baseline"
+    # Odoo JSON-2 API (see app/services/odoo.py). ODOO_MOCK gates lead
+    # *creation* only; the read-only connectivity check ignores it.
     odoo_mock: bool = True
     odoo_url: str = ""
-    odoo_db: str = ""
-    odoo_username: str = ""
-    odoo_password: str = ""
+    odoo_database: str = ""
+    odoo_api_key: str = ""
 
 
 @lru_cache

@@ -156,6 +156,22 @@ Used for:
 * Products
 * Inventory
 
+The adapter lives in [`backend/app/services/odoo.py`](backend/app/services/odoo.py). Both lead creation and the read-only connectivity check use Odoo's **JSON-2 API** (`POST {ODOO_URL}/json/2/{model}/{method}`, bearer-token auth):
+
+* **Lead creation** (`create_crm_lead`) — called from `/admin`'s "Aprobar y enviar a Odoo" action, only after owner approval. `ODOO_MOCK=true` (the default) returns a local mock lead and never contacts Odoo. `ODOO_MOCK=false` creates one real `crm.lead` record via JSON-2. It is idempotent: `review_quote` only calls it when the quote has no `odoo_lead_id` yet, so approving the same quote twice never creates a second lead — the second call just returns the already-saved lead. If Odoo is unreachable or rejects the request, the quote's approval (owner complexity + price) is still committed first, so the quote is never lost and the lead creation can be retried by approving again.
+* **Read-only connectivity check** (`check_connection_read_only`) — verifies the connection and reads CRM data. It is independent of `ODOO_MOCK`, so real read access can be checked while lead creation stays mocked. It only ever calls read/inspection ORM methods — `context_get`, `check_access_rights`, `search_read`, `fields_get` — and never creates, writes, deletes, or archives anything.
+
+Required environment variables (in `backend/.env`, never committed):
+
+| Variable | Notes |
+| --- | --- |
+| `ODOO_MOCK` | `true` (default) = local mock lead, no network call; `false` = real JSON-2 lead creation |
+| `ODOO_URL` | e.g. `https://your-instance.odoo.com` |
+| `ODOO_DATABASE` | only required for multi-database instances |
+| `ODOO_API_KEY` | generate in Odoo under *Preferences > Account Security > New API Key*; put it in `backend/.env` as `ODOO_API_KEY=...` — never in code, README, or committed files |
+
+Tests: `backend/tests/test_odoo_connection.py` is **READ-ONLY** (calls only inspection/read ORM methods). `backend/tests/test_odoo_lead_creation.py` covers mock creation, idempotent duplicate approval, and Odoo-failure handling always; the real-Odoo creation case additionally skips automatically unless `ODOO_URL` and `ODOO_API_KEY` are set, so it never touches a real Odoo database by accident.
+
 ### Admin Portal
 
 A Piñata Monde-branded interface for viewing relevant Odoo CRM/sales information.

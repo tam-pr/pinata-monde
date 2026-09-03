@@ -24,7 +24,13 @@ export function OwnerReviewDashboard() {
 
   useEffect(() => {
     if (!selected || !score) return;
-    getPriceBreakdown(selected.id, Number(score)).then(setBreakdown).catch((e: Error) => setError(e.message));
+    getPriceBreakdown(selected.id, Number(score)).then((data) => {
+      setBreakdown(data);
+      // Owner-selected complexity has priority over the AI suggestion, so the
+      // final price recalculates automatically as soon as it changes — until
+      // approval, after which the saved final price is authoritative.
+      if (selected.status !== "approved") setPrice(String(data.suggested_price_cents / 100));
+    }).catch((e: Error) => setError(e.message));
   }, [selected, score]);
 
   async function save() {

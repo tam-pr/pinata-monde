@@ -221,7 +221,7 @@ def review_quote(quote_id: str, review: QuoteReviewRequest, db: Session = Depend
         db.commit()
         db.refresh(quote)
         if not quote.odoo_lead_id:
-            lead = create_crm_lead(quote=quote, settings=get_settings())
+            lead = create_crm_lead(quote=quote, settings=get_settings(), price_estimate=suggested)
             quote.odoo_lead_id = lead.lead_id
             quote.odoo_status = lead.status
         db.commit()
