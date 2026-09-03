@@ -1,6 +1,6 @@
 # Architecture
 
-Status: agreed for MVP. Implementation is phased. Current code covers the **frontend shell**, **quote UI (unpersisted)**, and **pricing engine tests** only.
+Status: current MVP implementation includes the public quote flow, local image persistence, ML baseline/fallback, transparent pricing, owner review UI, and Odoo mock adapter.
 
 ## Demo flow
 
@@ -27,14 +27,14 @@ Website and WhatsApp are **sources** on the same quote record. There is no separ
 ```text
 Next.js  →  FastAPI  →  PostgreSQL
                 ↓
-         classifier adapter (mock | rules | vision | custom)
+         classifier adapter (baseline | mock | future vision | custom)
          pricing.estimate(...)
          storage adapter (local | later cloud)
          odoo adapter (mock | crm.lead | later quotations)
          whatsapp adapter (mock | Cloud API)
 ```
 
-FastAPI, Postgres, and adapters are **not** in the current checkpoint.
+The public app is implemented with FastAPI, PostgreSQL/Alembic-compatible persistence, and local uploads. WhatsApp and authentication are later phases.
 
 ## Complexity
 
@@ -52,7 +52,7 @@ Mapping:
 | 3 | Medium |
 | 4–5 | Complex |
 
-Classifier is a **backend** with a stable interface, e.g. `classify(images, description) -> {score, category, confidence, reasons}`. Initial backend: **mock**. Do not hard-wire an external vision API.
+Classifier is a **backend** with a stable interface, e.g. `classify(images, description) -> {score, category, confidence, reason, model_version}`. The current baseline is deterministic and demonstrable, but is not trained vision inference. Missing/unavailable inputs use a bounded fallback. Do not hard-wire an external vision API.
 
 ## Pricing
 
@@ -60,11 +60,13 @@ Pure function, independent of AI code:
 
 **Input (conceptual):** `size`, `quantity`, `deadline`, `shipping`, `complexity_score`
 
-**Output:** `estimated_price`
+**Output:** suggested price plus base price, complexity multiplier, quantity, shipping, and rush breakdown.
 
 Uses **PLACEHOLDER** constants until Piñata Monde provides real rules.
 
-## Odoo (later)
+## Owner review and Odoo
+
+New quotes are `pending_review`. `/admin` shows the reference, AI score/confidence/reason, and price breakdown. The owner can override complexity and final price. AI values remain immutable for audit/training feedback. Approval creates an Odoo lead through `services/odoo.py`; `ODOO_MOCK=true` yields an idempotent local fake lead.
 
 - Default `ODOO_MOCK=true`
 - First live object: **`crm.lead`**
@@ -82,28 +84,26 @@ Uses **PLACEHOLDER** constants until Piñata Monde provides real rules.
 - `Storage` interface: `save(file) -> ref`, `url(ref)`, replaceable with cloud
 - Validate JPEG/PNG/WebP, max bytes, max count; HEIC deferred
 
-## Admin (later)
+## Admin
 
 Focus on quote/CRM workflow, not cloning Odoo. Detail view:
 
 Customer, source, reference image, request details, size, quantity, deadline, shipping, AI complexity, estimated price, Odoo lead ID, lead status.
 
-Auth: single admin password / session — **not implemented yet**.
+Auth: single admin password / session — **not implemented yet**. `/admin` is for local/demo use only until auth is added.
 
 ## MVP vs later
 
-**Demo needs:** public site, quote capture, complexity (mock OK), placeholder pricing, persist + admin (later phases), Odoo mock or lead, WhatsApp mock or real webhook.
+**Demo needs:** public site, quote capture, baseline complexity, placeholder pricing, persistence, owner review, and Odoo mock or lead.
 
 **Not for demo:** payments, inventory, custom Odoo modules, fine-tuned vision, S3, SSO, Facebook, HEIC.
 
 ## Phases
 
-1. Customer site (this checkpoint)
-2. Quote UI (basic form in this checkpoint; persist later)
-3. Pricing engine (this checkpoint)
-4. Backend API + Postgres + local storage
-5. Classifier adapter (mock first)
-6. Odoo `crm.lead`
-7. WhatsApp mock then Cloud API
-8. Admin dashboard
-9. End-to-end demo script
+1. Customer site and quote API
+2. Pricing engine + persistence
+3. ML baseline / fallback
+4. Owner review + Odoo mock
+5. WhatsApp mock then Cloud API
+6. Authentication and production admin hardening
+7. End-to-end demo script

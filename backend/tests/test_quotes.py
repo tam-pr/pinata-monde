@@ -49,8 +49,10 @@ def test_create_quote_uses_pricing_engine(client: TestClient):
     response = client.post("/quotes", data=quote_payload())
     assert response.status_code == 201
     body = response.json()
-    assert body["complexity_score"] == 3
+    assert body["complexity_score"] == 3  # no image uses the ML fallback
     assert body["complexity_label"] == "medium"
+    assert body["ai_model_version"] == "fallback-v1"
+    assert 0 <= body["ai_confidence"] <= 1
     assert body["estimated_price_cents"] == 175500
     assert body["currency"] == "MXN"
     assert body["source"] == "web"
@@ -87,3 +89,44 @@ def test_quote_validation(client: TestClient, data: dict[str, str], files):
 def test_missing_quote_returns_404(client: TestClient):
     response = client.get("/quotes/not-a-quote")
     assert response.status_code == 404
+
+
+def test_owner_review_keeps_ai_prediction_and_creates_one_mock_odoo_lead(client: TestClient):
+    created = client.post("/quotes", data=quote_payload(), files=[("images", ("idea.png", b"reference-image", "image/png"))])
+    assert created.status_code == 201
+    original = created.json()
+
+    reviewed = client.patch(
+        f"/admin/quotes/{original['id']}/review",
+        json={"owner_complexity_score": 3, "final_price_cents": 210000},
+    )
+    assert reviewed.status_code == 200
+    body = reviewed.json()
+    assert body["status"] == "approved"
+    assert body["owner_complexity_score"] == 3
+    assert body["final_price_cents"] == 210000
+    assert body["complexity_score"] == original["complexity_score"]
+    assert body["odoo_lead_id"] == f"mock-{original['id']}"
+
+    retry = client.patch(f"/admin/quotes/{original['id']}/review", json={})
+    assert retry.status_code == 200
+    assert retry.json()["odoo_lead_id"] == body["odoo_lead_id"]
+
+
+def test_price_breakdown_is_available_before_review(client: TestClient):
+    created = client.post("/quotes", data=quote_payload())
+    response = client.get(f"/quotes/{created.json()['id']}/price-breakdown")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["complexity_score"] == created.json()["complexity_score"]
+    assert body["suggested_price_cents"] == created.json()["estimated_price_cents"]
+
+
+def test_price_breakdown_previews_an_owner_complexity_without_changing_quote(client: TestClient):
+    created = client.post("/quotes", data=quote_payload())
+    quote_id = created.json()["id"]
+    original = client.get(f"/quotes/{quote_id}").json()
+    preview = client.get(f"/quotes/{quote_id}/price-breakdown?complexity_score=5").json()
+    assert preview["complexity_score"] == 5
+    assert preview["suggested_price_cents"] > original["estimated_price_cents"]
+    assert client.get(f"/quotes/{quote_id}").json()["complexity_score"] == original["complexity_score"]

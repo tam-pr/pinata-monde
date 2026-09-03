@@ -22,6 +22,20 @@ The business should be able to:
 * View reference images associated with leads
 * Manage relevant CRM information through a Piñata Monde-branded admin interface
 
+## Current quote flow
+
+The implemented MVP flow is: website quote → PostgreSQL + local reference images → complexity suggestion → transparent Python price suggestion → owner review at `/admin` → Odoo CRM lead.
+
+The AI only estimates image-design complexity. It does **not** approve a quote or determine the final price. Every new quote is `pending_review`; the owner can adjust complexity and/or final MXN price before approving it. The original AI score, confidence, reason, and model version are retained for future feedback/training.
+
+Pricing parameters are deliberately centralized at the top of `backend/app/services/pricing.py`, labeled as `REAL BUSINESS DATA`, `MARKET CALIBRATION`, or `TODO / PLACEHOLDER`. Odoo runs in idempotent local mock mode by default (`ODOO_MOCK=true`); real mode requires environment-provided credentials.
+
+## Pricing Configuration
+
+* **Pricing parameters** (sizes/dimensions, shipping fee, stick fee, Express window, complexity multipliers, and `FINAL_PRICE_ROUNDING`) live in one place: [`backend/app/services/pricing.py`](backend/app/services/pricing.py). Each value is labeled `REAL BUSINESS DATA` (confirmed by the owner), `MARKET CALIBRATION` (derived from a confirmed anchor point), or `TODO / PLACEHOLDER` (not yet provided — do not treat as final).
+* **ML complexity-prediction parameters** (model version, categories, baseline scoring) live in [`backend/app/services/complexity.py`](backend/app/services/complexity.py). The `ml/` directory only holds documentation; the executable adapter is in `backend/app/services/`. AI only predicts complexity 1–5 and never sets or influences the final price.
+* `FINAL_PRICE_ROUNDING` (in `pricing.py`) controls upward rounding of the final customer-facing price: the price is always a whole integer, rounded UP to the next multiple of this value (e.g. with `FINAL_PRICE_ROUNDING = 5`, 701 → 705, 709 → 710).
+
 ## Core Architecture
 
 ```text
@@ -190,4 +204,3 @@ Prioritize:
 * Clear separation of responsibilities
 
 Do not introduce enterprise-level infrastructure unless it is necessary.
-

@@ -1,1 +1,0 @@
-DATABASE_URL=postgresql+psycopg://tam_pr@localhost:5432/pinata_monde

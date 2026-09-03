@@ -17,7 +17,17 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("uploads")
     max_image_bytes: int = 5 * 1024 * 1024
     max_images_per_quote: int = 3
-    frontend_origin: str = "http://localhost:3000"
+    frontend_origin: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    @property
+    def frontend_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.frontend_origin.split(",") if origin.strip()]
+    ml_backend: str = "baseline"
+    odoo_mock: bool = True
+    odoo_url: str = ""
+    odoo_db: str = ""
+    odoo_username: str = ""
+    odoo_password: str = ""
 
 
 @lru_cache

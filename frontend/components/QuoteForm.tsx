@@ -11,10 +11,13 @@ import {
 } from "@/lib/quoteImages";
 
 const SIZES = [
-  { value: "chica", label: "Chica" },
-  { value: "mediana", label: "Mediana" },
-  { value: "grande", label: "Grande" },
+  { value: "chica", label: "Chica · 30 cm (Centro de mesa)" },
+  { value: "mediana", label: "Mediana · 60 cm" },
+  { value: "grande", label: "Grande · 90 cm (Estándar)" },
 ] as const;
+
+// Requested date <= 5 days from today counts as Express delivery.
+const EXPRESS_WINDOW_DAYS = 5;
 
 type FormState = {
   name: string;
@@ -25,6 +28,7 @@ type FormState = {
   theme: string;
   deadline: string;
   shipping: "pickup" | "shipping";
+  needsStick: boolean;
   description: string;
 };
 
@@ -40,6 +44,7 @@ function emptyForm(theme: string): FormState {
     theme,
     deadline: "",
     shipping: "pickup",
+    needsStick: false,
     description: theme
       ? `Me gustaría una piñata de ${theme}.`
       : "",
@@ -48,6 +53,14 @@ function emptyForm(theme: string): FormState {
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isExpressDeadline(deadline: string): boolean {
+  if (!deadline) return false;
+  const limit = new Date();
+  limit.setHours(0, 0, 0, 0);
+  limit.setDate(limit.getDate() + EXPRESS_WINDOW_DAYS);
+  return new Date(`${deadline}T00:00:00`) <= limit;
 }
 
 export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
@@ -129,6 +142,7 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
     payload.set("quantity", form.quantity);
     payload.set("deadline", form.deadline);
     payload.set("delivery_method", form.shipping);
+    payload.set("needs_stick", form.needsStick ? "true" : "false");
     payload.set("description", form.description.trim());
     payload.set("source", "web");
     for (const file of files) payload.append("images", file);
@@ -178,7 +192,12 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
             <dt className="text-ink-soft">Entrega</dt>
             <dd className="font-medium">
               {form.shipping === "shipping" ? "Envío" : "Recoger"} · {form.deadline}
+              {isExpressDeadline(form.deadline) ? " · Exprés (≤5 días)" : ""}
             </dd>
+          </div>
+          <div>
+            <dt className="text-ink-soft">Palo de piñata</dt>
+            <dd className="font-medium">{form.needsStick ? "Sí" : "No"}</dd>
           </div>
           <div>
             <dt className="text-ink-soft">Estimación inicial</dt>
@@ -191,6 +210,10 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
             <dd className="font-medium">{files.length} imagen(es)</dd>
           </div>
         </dl>
+        <p className="mt-6 text-sm text-ink-soft">
+          Si deseas cancelar la compra, se puede hacer únicamente con 24 horas de
+          anticipación. Si lo haces en menos tiempo, no hay reembolso.
+        </p>
         <Button
           type="button"
           variant="secondary"
@@ -302,8 +325,8 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
         <legend className="px-1 text-lg font-semibold text-navy">Referencia visual</legend>
         <p className="mt-1 text-sm text-ink-soft">
           JPEG, PNG o WebP. Máximo {MAX_IMAGES_PER_QUOTE} archivos,{" "}
-          {MAX_IMAGE_BYTES / (1024 * 1024)} MB cada uno. No se suben a un servidor
-          todavía.
+          {MAX_IMAGE_BYTES / (1024 * 1024)} MB cada uno. Las referencias ayudan a
+          generar una estimación automática que el equipo revisará.
         </p>
         <label
           htmlFor={fileInputId}
@@ -391,6 +414,29 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
               </label>
             </div>
           </fieldset>
+          <fieldset className="text-sm">
+            <legend className="font-medium">¿Necesitas palo de piñata?</legend>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:gap-6">
+              <label className="flex items-center gap-2 font-normal">
+                <input
+                  type="radio"
+                  name="needsStick"
+                  checked={form.needsStick}
+                  onChange={() => update("needsStick", true)}
+                />
+                Sí
+              </label>
+              <label className="flex items-center gap-2 font-normal">
+                <input
+                  type="radio"
+                  name="needsStick"
+                  checked={!form.needsStick}
+                  onChange={() => update("needsStick", false)}
+                />
+                No
+              </label>
+            </div>
+          </fieldset>
         </div>
       </fieldset>
 
@@ -418,6 +464,10 @@ export function QuoteForm({ initialTheme = "" }: { initialTheme?: string }) {
         </Button>
         <p className="text-sm text-ink-soft">Sin compromiso de pago en este paso.</p>
       </div>
+      <p className="text-sm text-ink-soft">
+        Si deseas cancelar la compra, se puede hacer únicamente con 24 horas de
+        anticipación. Si lo haces en menos tiempo, no hay reembolso.
+      </p>
     </form>
   );
 }
