@@ -42,6 +42,29 @@ const REASONS = [
   },
 ];
 
+const TESTIMONIALS = [
+  {
+    quote: "Te quiero felicitar, mi hija está fascinada con las piñatas ¡Te quedaron wow!",
+    name: "Kary",
+    detail: "Piñatas tema Paw Patrol · octubre 2024",
+  },
+  {
+    quote: "¡Muchísimas gracias me encantó!",
+    name: "Ale",
+    detail: "Piñata Supergirl · julio 2024",
+  },
+  {
+    quote: "Muy bonitas me gustaron mucho, la verdad le gustaron mucho las piñatas a los niños, gracias.",
+    name: "Lety",
+    detail: "Piñata Sirena · junio 2024",
+  },
+  {
+    quote: "Quedaron bien padres, le van a encantar, muchas gracias.",
+    name: "Mariana",
+    detail: "Piñata Zombie · junio 2024",
+  },
+];
+
 export default function Home() {
   return (
     <main>
@@ -69,12 +92,12 @@ export default function Home() {
             </div>
           </div>
           <div className="flex justify-center lg:justify-end">
-            <div className="w-full max-w-md rounded-[var(--radius-lg)] border border-navy-20 bg-white p-8 sm:p-10">
+            <div className="w-full max-w-md overflow-hidden rounded-[var(--radius-lg)] border border-navy-20 bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/brand/logo-centrado.svg"
-                alt=""
-                className="mx-auto h-auto w-full max-w-xs"
+                src="/hero/emiliano-fiesta.webp"
+                alt="Piñata personalizada de Tigger, hecha para el primer cumpleaños de Emiliano"
+                className="aspect-[4/3] h-full w-full object-cover"
               />
             </div>
           </div>
@@ -126,12 +149,12 @@ export default function Home() {
       <section className="py-16 sm:py-20">
         <Container className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="rounded-[var(--radius-lg)] bg-magenta-20 p-6 sm:p-8">
-            <div className="rounded-[var(--radius-md)] bg-white p-8 sm:p-10">
+            <div className="overflow-hidden rounded-[var(--radius-md)] bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/brand/logo-isotipo.svg"
-                alt=""
-                className="mx-auto h-48 w-48 sm:h-56 sm:w-56"
+                src="/hero/IMG_8435.jpeg"
+                alt="Piñata personalizada de Tigger, hecha para el primer cumpleaños de Emiliano"
+                className="aspect-[4/3] h-full w-full object-cover"
               />
             </div>
           </div>
@@ -174,6 +197,25 @@ export default function Home() {
       </section>
 
       <section className="py-16 sm:py-20">
+        <Container>
+          <SectionHeading
+            eyebrow="Clientes"
+            title="Opiniones de quienes ya celebraron con nosotros"
+          />
+          <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {TESTIMONIALS.map((testimonial) => (
+              <li key={testimonial.name + testimonial.detail} className="rounded-[var(--radius-md)] bg-white p-6 ring-1 ring-navy-20">
+                <p className="text-sm leading-6 text-ink-soft">&ldquo;{testimonial.quote}&rdquo;</p>
+                <p className="mt-4 text-sm font-semibold text-navy">{testimonial.name}</p>
+                <p className="text-xs text-ink-soft">{testimonial.detail}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-8 text-sm font-medium text-magenta"></p>
+        </Container>
+      </section>
+
+      <section className="border-y border-navy-20 bg-white py-16 sm:py-20">
         <Container className="max-w-3xl">
           <SectionHeading
             eyebrow="Taller"

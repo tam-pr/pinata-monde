@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AccordionGallery, type AccordionGalleryItem } from "@/components/AccordionGallery";
 import { Button } from "@/components/Button";
 import { Container } from "@/components/Container";
 import { SectionHeading } from "@/components/SectionHeading";
@@ -16,6 +17,20 @@ const VALUES = [
   { title: "Personalización", text: "Partimos de lo que imaginas: una referencia, un color, un personaje o una historia que quieres celebrar." },
 ];
 
+const RECOGNITION_GALLERY_ITEMS: AccordionGalleryItem[] = [
+  { image: "/aboutus/aboutus1.webp", label: "Fundadores" },
+  { image: "/aboutus/aboutus2.webp", label: "Taller creativo" },
+  { image: "/aboutus/aboutus3.webp", label: "Piñatas a mano" },
+  { image: "/aboutus/aboutus4.png", label: "Equipo finalista" },
+  { image: "/aboutus/aboutus5.png", label: "Premio COPARMEX" },
+];
+
+const PILLARS = [
+  { title: "Visión", text: "Ser la empresa líder en la creación de piñatas innovadoras y personalizadas, destacándonos por ofrecer experiencias únicas que transformen cada celebración en momentos memorables, combinando tradición y creatividad." },
+  { title: "Misión", text: "Brindar a nuestros clientes piñatas de alta calidad y diseños exclusivos que reflejen su estilo y emociones, con un compromiso firme hacia la satisfacción, el trabajo artesanal y la mejora continua. Buscamos ser parte fundamental de cada fiesta, haciendo de cada golpe una razón para sonreír." },
+  { title: "Objetivo", text: "Ofrecer piñatas personalizadas de la más alta calidad, innovadoras y atractivas, que contribuyan a hacer de cada evento una experiencia única, fomentando la alegría y la unión en cada celebración." },
+];
+
 export default function NosotrosPage() {
   return (
     <main>
@@ -26,22 +41,52 @@ export default function NosotrosPage() {
       </section>
 
       <section className="py-14 sm:py-20 lg:py-24">
-        <Container className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-start lg:gap-16">
+        <Container className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch lg:gap-16">
           <div>
             <SectionHeading eyebrow="Nuestra historia" title="Una historia por contar" />
             <div className="mt-6 space-y-4 text-ink-soft">
-              <p>[Contenido pendiente] Aquí irá la historia oficial de Piñata Monde: cómo comenzó, quiénes le dieron forma y qué momentos han definido al taller.</p>
-              <p>Mientras reunimos esa información, este espacio conserva la estructura para contarla con las palabras y recuerdos del propio equipo.</p>
+              <p>Somos una empresa fundada por un papá y su hija dedicada a la creación y diseño de piñatas personalizadas con el fin de mantener las tradiciones mexicanas.</p>
+              <p>Siendo las piñatas un símbolo de nuestro país y cultura, soñamos con seguir creando ilusiones para todos los niños.</p>
+              <p> </p>
+              <p>Somos una empresa fundada por un papá y su hija dedicada a la creación y diseño de piñatas personalizadas con el fin de mantener las tradiciones mexicanas.</p>
+              <p>Siendo las piñatas un símbolo de nuestro país y cultura, soñamos con seguir creando ilusiones para todos los niños.</p>
             </div>
           </div>
-          <div className="rounded-[var(--radius-lg)] border border-navy-20 bg-paper p-6 sm:p-8">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-magenta">Archivo del taller</p>
-            <p className="mt-3 text-sm leading-6 text-ink-soft">Marcador de posición para una fotografía, cronología breve o material visual oficial de Piñata Monde.</p>
+          <div className="flex flex-col rounded-[var(--radius-lg)] border border-navy-20 bg-paper p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-magenta">Reconocimiento</p>
+            <p className="mt-3 text-sm leading-6 text-ink-soft">Piñata Monde fue finalista del Premio Emprendedor COPARMEX 2024.</p>
+            <div className="mt-6 min-h-[320px] flex-1">
+              <AccordionGallery
+                items={RECOGNITION_GALLERY_ITEMS}
+                defaultIndex={3}
+                trigger="hover"
+                grayscale={true}
+                showLabels={true}
+                radius={16}
+                gap={10}
+                height={320}
+                className="accordion-gallery--fill"
+              />
+            </div>
           </div>
         </Container>
       </section>
 
       <section className="border-y border-navy-20 bg-white py-14 sm:py-20 lg:py-24">
+        <Container>
+          <SectionHeading eyebrow="Visión, misión y objetivo" title="Lo que nos mueve" />
+          <ul className="mt-9 grid gap-5 sm:mt-10 sm:grid-cols-3 sm:gap-6">
+            {PILLARS.map((pillar) => (
+              <li key={pillar.title} className="rounded-[var(--radius-md)] bg-paper p-6 ring-1 ring-navy-20">
+                <h2 className="text-lg">{pillar.title}</h2>
+                <p className="mt-3 text-sm leading-6 text-ink-soft">{pillar.text}</p>
+              </li>
+            ))}
+          </ul>
+        </Container>
+      </section>
+
+      <section className="border-b border-navy-20 bg-white py-14 sm:py-20 lg:py-24">
         <Container className="grid gap-10 lg:grid-cols-2 lg:gap-16">
           <div>
             <SectionHeading eyebrow="Sostenibilidad" title="Mejorar el proceso con intención" />

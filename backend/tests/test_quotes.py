@@ -11,9 +11,15 @@ from app.db import Base
 from app.main import app
 
 
+ADMIN_TEST_USERNAME = "admin"
+ADMIN_TEST_PASSWORD = "test-admin-password"
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", str(tmp_path / "uploads"))
+    monkeypatch.setenv("ADMIN_USERNAME", ADMIN_TEST_USERNAME)
+    monkeypatch.setenv("ADMIN_PASSWORD", ADMIN_TEST_PASSWORD)
     get_settings.cache_clear()
     # SQLite in-memory requests must share the same connection.
     from sqlalchemy import create_engine
@@ -25,6 +31,11 @@ def client(tmp_path, monkeypatch):
     db_module._session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     Base.metadata.create_all(engine)
     with TestClient(app) as test_client:
+        # The startup event seeds the admin user; log in so the client's
+        # cookie jar carries a valid session for the protected /admin/*
+        # endpoints most tests exercise.
+        login = test_client.post("/admin/login", json={"username": ADMIN_TEST_USERNAME, "password": ADMIN_TEST_PASSWORD})
+        assert login.status_code == 200, login.text
         yield test_client
     Base.metadata.drop_all(engine)
     get_settings.cache_clear()

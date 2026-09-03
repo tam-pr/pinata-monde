@@ -55,3 +55,35 @@ class QuoteImage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     quote: Mapped[Quote] = relationship(back_populates="images")
+
+
+class AdminUser(Base):
+    """An established Piñata Monde team member allowed into /admin.
+
+    Seeded from ADMIN_USERNAME/ADMIN_PASSWORD (see app/auth.py); there is no
+    self-registration endpoint.
+    """
+
+    __tablename__ = "admin_users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class AdminSession(Base):
+    """Server-side session record referenced by an opaque httpOnly cookie.
+
+    A DB-backed token (not a signed/JWT blob) so logout and expiry are a
+    plain row check/delete — no extra crypto dependency needed.
+    """
+
+    __tablename__ = "admin_sessions"
+
+    token: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("admin_users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # Naive UTC (no timezone=True): compared directly against datetime.utcnow()
+    # in app/auth.py, avoiding SQLite/Postgres tz round-trip inconsistencies.
+    expires_at: Mapped[datetime] = mapped_column(DateTime(), nullable=False)

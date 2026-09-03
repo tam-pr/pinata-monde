@@ -65,3 +65,13 @@ class PriceBreakdownResponse(BaseModel):
     express_fee_cents: int
     suggested_price_cents: int
     currency: str
+
+
+class AdminLoginRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1, max_length=200)
+
+
+class AdminMeResponse(BaseModel):
+    """Never includes the password hash or any other secret."""
+    username: str

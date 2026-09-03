@@ -7,15 +7,30 @@ from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import (
+    SESSION_COOKIE_NAME,
+    SESSION_TTL,
+    authenticate,
+    create_session,
+    delete_session,
+    ensure_admin_seed,
+    get_current_admin,
+)
 from app.config import get_settings
 from app.db import get_db
-from app.models import Quote, QuoteImage
-from app.schemas import PriceBreakdownResponse, QuoteResponse, QuoteReviewRequest
+from app.models import AdminUser, Quote, QuoteImage
+from app.schemas import (
+    AdminLoginRequest,
+    AdminMeResponse,
+    PriceBreakdownResponse,
+    QuoteResponse,
+    QuoteReviewRequest,
+)
 from app.services.complexity import category_for_score, predict_complexity
 from app.services.odoo import create_crm_lead
 from app.services.pricing import PricingError, estimate_price
@@ -28,16 +43,59 @@ app = FastAPI(title="Piñata Monde Quote API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().frontend_origins,
-    allow_credentials=False,
+    # Required for the /admin session cookie to be sent cross-origin
+    # (frontend and backend run on different ports/origins).
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["Content-Type"],
 )
 app.mount("/uploads", StaticFiles(directory=get_settings().upload_dir, check_dir=False), name="uploads")
 
 
+@app.on_event("startup")
+def _seed_admin_user() -> None:
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        ensure_admin_seed(db, get_settings())
+    finally:
+        db_gen.close()
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/admin/login", response_model=AdminMeResponse)
+def admin_login(payload: AdminLoginRequest, response: Response, db: Session = Depends(get_db)) -> AdminMeResponse:
+    user = authenticate(db, payload.username, payload.password)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario o contraseña incorrectos.")
+    token = create_session(db, user)
+    response.set_cookie(
+        SESSION_COOKIE_NAME, token,
+        httponly=True, samesite="lax", secure=get_settings().secure_cookies,
+        max_age=int(SESSION_TTL.total_seconds()), path="/",
+    )
+    return AdminMeResponse(username=user.username)
+
+
+@app.post("/admin/logout")
+def admin_logout(
+    response: Response,
+    admin_session: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    if admin_session:
+        delete_session(db, admin_session)
+    response.delete_cookie(SESSION_COOKIE_NAME, path="/")
+    return {"status": "ok"}
+
+
+@app.get("/admin/me", response_model=AdminMeResponse)
+def admin_me(current_admin: AdminUser = Depends(get_current_admin)) -> AdminMeResponse:
+    return AdminMeResponse(username=current_admin.username)
 
 
 def _validation_error(detail: str) -> HTTPException:
@@ -183,6 +241,7 @@ def get_price_breakdown(
     quote_id: str,
     complexity_score: int | None = Query(default=None, ge=1, le=5),
     db: Session = Depends(get_db),
+    _admin: AdminUser = Depends(get_current_admin),
 ) -> PriceBreakdownResponse:
     quote = db.query(Quote).filter(Quote.id == quote_id).one_or_none()
     if quote is None:
@@ -192,12 +251,14 @@ def get_price_breakdown(
 
 
 @app.get("/admin/quotes", response_model=list[QuoteResponse])
-def list_quotes_for_review(db: Session = Depends(get_db)) -> list[Quote]:
+def list_quotes_for_review(db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> list[Quote]:
     return db.query(Quote).options(selectinload(Quote.images)).order_by(Quote.created_at.desc()).all()
 
 
 @app.patch("/admin/quotes/{quote_id}/review", response_model=QuoteResponse)
-def review_quote(quote_id: str, review: QuoteReviewRequest, db: Session = Depends(get_db)) -> Quote:
+def review_quote(
+    quote_id: str, review: QuoteReviewRequest, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin),
+) -> Quote:
     quote = db.query(Quote).options(selectinload(Quote.images)).filter(Quote.id == quote_id).one_or_none()
     if quote is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found.")

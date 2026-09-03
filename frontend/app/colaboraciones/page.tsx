@@ -88,7 +88,7 @@ export default function ColaboracionesPage() {
             description="Este espacio está reservado para compartir futuras colaboraciones de Piñata Monde. Las historias, imágenes y nombres se añadirán cuando haya información oficial para publicar."
           />
           <div className="mt-8">
-            <Button href="/cotizar" size="lg">Proponer una colaboración</Button>
+            <Button href="/colaboraciones/proponer" size="lg">Proponer una colaboración</Button>
           </div>
         </Container>
       </section>
@@ -130,7 +130,7 @@ export default function ColaboracionesPage() {
                     )}
                   </div>
                   <div className="p-6">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-magenta">placeholder</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-magenta">Piñata Partner</p>
                     <h2 className="mt-3 text-xl">{collaboration.title}</h2>
                     <p className="mt-3 text-sm leading-6 text-ink-soft">{collaboration.description}</p>
                   </div>

@@ -6,7 +6,7 @@ import { getPriceBreakdown, getReviewQuotes, reviewQuote, uploadUrl, type PriceB
 
 const money = (cents: number, currency = "MXN") => new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(cents / 100);
 
-export function OwnerReviewDashboard() {
+export function OwnerReviewDashboard({ statusFilter }: { statusFilter: "pending_review" | "approved" }) {
   const [quotes, setQuotes] = useState<ReviewQuote[]>([]);
   const [selected, setSelected] = useState<ReviewQuote | null>(null);
   const [breakdown, setBreakdown] = useState<PriceBreakdown | null>(null);
@@ -15,7 +15,15 @@ export function OwnerReviewDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { getReviewQuotes().then((items) => { setQuotes(items); if (items[0]) setSelected(items[0]); }).catch((e: Error) => setError(e.message)); }, []);
+  const filteredQuotes = quotes.filter((quote) => quote.status === statusFilter);
+
+  useEffect(() => {
+    getReviewQuotes().then((items) => {
+      setQuotes(items);
+      const filtered = items.filter((item) => item.status === statusFilter);
+      setSelected((prev) => prev ?? filtered[0] ?? null);
+    }).catch((e: Error) => setError(e.message));
+  }, [statusFilter]);
   useEffect(() => {
     if (!selected) return;
     setScore(String(selected.owner_complexity_score ?? selected.complexity_score));
@@ -47,13 +55,25 @@ export function OwnerReviewDashboard() {
   }
 
   if (error && !selected) return <p className="text-magenta">{error}</p>;
-  if (!selected) return <p className="text-ink-soft">No hay cotizaciones para revisar.</p>;
+  if (!selected) {
+    return (
+      <p className="text-ink-soft">
+        {statusFilter === "approved"
+          ? "No hay cotizaciones aprobadas todavía."
+          : "No hay cotizaciones por aprobar."}
+      </p>
+    );
+  }
   const effectiveSuggested = breakdown?.suggested_price_cents ?? selected.estimated_price_cents;
+  // Keep the just-acted-on quote visible in its own sidebar even if it no
+  // longer matches this tab's filter (e.g. right after approving it) — it
+  // will drop out on the next visit to this tab.
+  const sidebarQuotes = filteredQuotes.some((quote) => quote.id === selected.id) ? filteredQuotes : [selected, ...filteredQuotes];
 
   return <div className="grid gap-8 lg:grid-cols-[18rem_1fr]">
     <aside className="rounded-[var(--radius-lg)] border border-navy-20 bg-white p-4">
       <p className="px-2 text-sm font-semibold text-navy">Cotizaciones</p>
-      <ul className="mt-3 space-y-1">{quotes.map((quote) => <li key={quote.id}><button onClick={() => setSelected(quote)} className={`w-full rounded-[var(--radius-sm)] px-3 py-3 text-left text-sm ${selected.id === quote.id ? "bg-magenta-20 text-navy" : "hover:bg-paper"}`}><span className="block font-medium">{quote.customer_name}</span><span className="text-xs text-ink-soft">{quote.status === "approved" ? "Aprobada" : "Pendiente de revisión"}</span></button></li>)}</ul>
+      <ul className="mt-3 max-h-[65vh] space-y-1 overflow-y-auto">{sidebarQuotes.map((quote) => <li key={quote.id}><button onClick={() => setSelected(quote)} className={`w-full rounded-[var(--radius-sm)] px-3 py-3 text-left text-sm ${selected.id === quote.id ? "bg-magenta-20 text-navy" : "hover:bg-paper"}`}><span className="block font-medium">{quote.customer_name}</span><span className="text-xs text-ink-soft">{quote.status === "approved" ? "Aprobada" : "Pendiente de revisión"}</span></button></li>)}</ul>
     </aside>
     <section className="space-y-6">
       <div className="rounded-[var(--radius-lg)] border border-magenta bg-magenta-20 p-5"><p className="font-semibold text-navy">Estimación automática — requiere revisión.</p><p className="mt-1 text-sm text-ink-soft">La IA sugiere complejidad y el sistema calcula un precio; tú decides el resultado final.</p></div>

@@ -27,10 +27,15 @@ export default async function ProductoPage({ params }: Props) {
         <Link href={`/catalogo/${category.slug}`} className="text-sm font-medium text-magenta hover:underline">← Volver a {category.title}</Link>
         <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-14">
           <div className="flex aspect-square items-center justify-center rounded-[var(--radius-lg)] bg-paper p-8 sm:p-10">
-            <div className="flex h-full w-full items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70/60 bg-white px-6 text-center text-sm font-semibold uppercase tracking-[0.14em] text-navy-70">Imagen de producto pendiente</div>
+            {product.image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.image} alt={product.title} className="h-full w-full object-contain" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded-[var(--radius-md)] border border-dashed border-navy-70/60 bg-white px-6 text-center text-sm font-semibold uppercase tracking-[0.14em] text-navy-70">Imagen de producto pendiente</div>
+            )}
           </div>
           <div className="flex flex-col justify-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-magenta">{category.title} · referencia de catálogo</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-magenta">{category.title} · {product.image ? "diseño real" : "referencia de catálogo"}</p>
             <h1 className="mt-3 text-3xl sm:text-4xl">{product.title}</h1>
             <p className="mt-5 text-ink-soft">{product.description}</p>
             <dl className="mt-8 divide-y divide-navy-20 rounded-[var(--radius-md)] border border-navy-20 bg-white px-5 text-sm">

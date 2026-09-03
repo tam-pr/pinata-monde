@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     odoo_url: str = ""
     odoo_database: str = ""
     odoo_api_key: str = ""
+    # /admin authentication (see app/auth.py). Seeded once from these values;
+    # never hardcoded, never logged, never returned by any endpoint.
+    admin_username: str = ""
+    admin_password: str = ""
+    # Cookie Secure flag — enable when served over HTTPS.
+    secure_cookies: bool = False
 
 
 @lru_cache

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Container } from "@/components/Container";
-import { CONTACT, NAV_LINKS } from "@/lib/nav";
+import { CONTACT, NAV_LINKS, SOCIAL_LINKS } from "@/lib/nav";
 
 export function SiteFooter() {
   return (
@@ -51,6 +51,16 @@ export function SiteFooter() {
                 Solicitar cotización
               </Link>
             </li>
+          </ul>
+          <p className="mt-6 text-sm font-semibold text-navy">Síguenos</p>
+          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-ink-soft">
+            {SOCIAL_LINKS.map((social) => (
+              <li key={social.label}>
+                <a className="hover:text-magenta" href={social.href} target="_blank" rel="noopener noreferrer">
+                  {social.label}
+                </a>
+              </li>
+            ))}
           </ul>
         </div>
       </Container>

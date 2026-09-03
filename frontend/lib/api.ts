@@ -48,14 +48,16 @@ export async function createQuote(formData: FormData): Promise<CreatedQuote> {
 }
 
 export async function getReviewQuotes(): Promise<ReviewQuote[]> {
-  const response = await fetch(apiUrl("/admin/quotes"), { cache: "no-store" });
+  const response = await fetch(apiUrl("/admin/quotes"), { cache: "no-store", credentials: "include" });
+  if (response.status === 401) throw new AdminAuthError();
   if (!response.ok) throw new Error("No pudimos cargar las cotizaciones.");
   return response.json() as Promise<ReviewQuote[]>;
 }
 
 export async function getPriceBreakdown(id: string, complexityScore?: number): Promise<PriceBreakdown> {
   const query = complexityScore ? `?complexity_score=${complexityScore}` : "";
-  const response = await fetch(apiUrl(`/quotes/${id}/price-breakdown${query}`));
+  const response = await fetch(apiUrl(`/quotes/${id}/price-breakdown${query}`), { credentials: "include" });
+  if (response.status === 401) throw new AdminAuthError();
   if (!response.ok) throw new Error("No pudimos calcular el desglose.");
   return response.json() as Promise<PriceBreakdown>;
 }
@@ -63,10 +65,40 @@ export async function getPriceBreakdown(id: string, complexityScore?: number): P
 export async function reviewQuote(id: string, payload: { owner_complexity_score?: number; final_price_cents?: number }): Promise<ReviewQuote> {
   const response = await fetch(apiUrl(`/admin/quotes/${id}/review`), {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    credentials: "include",
   });
+  if (response.status === 401) throw new AdminAuthError();
   const result = await response.json().catch(() => null);
   if (!response.ok) throw new Error(typeof result?.detail === "string" ? result.detail : "No pudimos guardar la revisión.");
   return result as ReviewQuote;
+}
+
+/** Thrown when an admin API call gets a 401; callers can redirect to /admin/login. */
+export class AdminAuthError extends Error {
+  constructor() {
+    super("No autenticado.");
+    this.name = "AdminAuthError";
+  }
+}
+
+export async function adminLogin(username: string, password: string): Promise<{ username: string }> {
+  const response = await fetch(apiUrl("/admin/login"), {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }), credentials: "include",
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof result?.detail === "string" ? result.detail : "Usuario o contraseña incorrectos.");
+  return result as { username: string };
+}
+
+export async function adminLogout(): Promise<void> {
+  await fetch(apiUrl("/admin/logout"), { method: "POST", credentials: "include" });
+}
+
+export async function getAdminMe(): Promise<{ username: string } | null> {
+  const response = await fetch(apiUrl("/admin/me"), { credentials: "include", cache: "no-store" });
+  if (!response.ok) return null;
+  return response.json() as Promise<{ username: string }>;
 }
 
 export function uploadUrl(path: string) {
