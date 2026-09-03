@@ -42,3 +42,8 @@ export function buildWhatsAppOrderMessage(details: WhatsAppOrderDetails): string
 export function buildWhatsAppOrderLink(details: WhatsAppOrderDetails): string {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(buildWhatsAppOrderMessage(details))}`;
 }
+
+/** Plain wa.me click-to-chat link with no pre-filled message — for a generic contact entry point (e.g. the footer). */
+export function buildWhatsAppContactLink(): string {
+  return `https://wa.me/${WHATSAPP_NUMBER}`;
+}

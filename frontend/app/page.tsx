@@ -1,6 +1,7 @@
 import { Button } from "@/components/Button";
 import { Container } from "@/components/Container";
 import { CatalogCategoryCard } from "@/components/CatalogCategoryCard";
+import { FaqSection } from "@/components/FaqSection";
 import { SectionHeading } from "@/components/SectionHeading";
 import { CATALOG_CATEGORIES } from "@/lib/catalog";
 
@@ -148,6 +149,31 @@ export default function Home() {
 
       <section className="py-16 sm:py-20">
         <Container className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <SectionHeading eyebrow="Ubicación" title="¿Dónde nos ubicamos?" />
+            <p className="mt-5 text-ink-soft">
+              Piñata Monde tiene su taller en la Zona Metropolitana de Guadalajara, en
+              Zapopan. Usa el mapa para ubicarnos exactamente, ya sea que quieras
+              coordinar la recolección de tu pedido o simplemente conocer dónde
+              armamos cada piñata.
+            </p>
+          </div>
+          <div className="rounded-[var(--radius-lg)] bg-magenta-20 p-6 sm:p-8">
+            <div className="aspect-[4/3] overflow-hidden rounded-[var(--radius-md)] bg-white">
+              <iframe
+                title="Ubicación de Piñata Monde en Google Maps"
+                src="https://www.google.com/maps?cid=8635930608721090912&output=embed"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="h-full w-full border-0"
+              />
+            </div>
+          </div>
+        </Container>
+      </section>
+
+      <section className="py-16 sm:py-20">
+        <Container className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="rounded-[var(--radius-lg)] bg-magenta-20 p-6 sm:p-8">
             <div className="overflow-hidden rounded-[var(--radius-md)] bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -224,6 +250,8 @@ export default function Home() {
           />
         </Container>
       </section>
+
+      <FaqSection />
 
       <section className="bg-navy py-16 text-white sm:py-20">
         <Container className="text-center">

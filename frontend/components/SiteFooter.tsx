@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Container } from "@/components/Container";
 import { CONTACT, NAV_LINKS, SOCIAL_LINKS } from "@/lib/nav";
+import { buildWhatsAppContactLink } from "@/lib/whatsapp";
 
 export function SiteFooter() {
   return (
@@ -43,7 +44,17 @@ export function SiteFooter() {
             </li>
             <li>
               <a className="hover:text-magenta" href={CONTACT.phoneHref}>
-                WhatsApp {CONTACT.phoneDisplay}
+                Llamar {CONTACT.phoneDisplay}
+              </a>
+            </li>
+            <li>
+              <a
+                className="hover:text-magenta"
+                href={buildWhatsAppContactLink()}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                ¿Tienes más dudas? Escríbenos por WhatsApp
               </a>
             </li>
             <li>
