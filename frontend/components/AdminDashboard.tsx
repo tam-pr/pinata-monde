@@ -10,6 +10,8 @@ const TABS = [
   { id: "quotes-approved", label: "Cotizaciones aprobadas" },
   { id: "collabs-pending", label: "Colaboraciones por aprobar" },
   { id: "collabs-approved", label: "Colaboraciones aprobadas" },
+  { id: "quotes-archived", label: "Cotizaciones archivadas" },
+  { id: "quotes-trash", label: "Papelera" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -43,10 +45,12 @@ export function AdminDashboard() {
         ))}
       </div>
       <div className="mt-8">
-        {active === "quotes-pending" ? <OwnerReviewDashboard statusFilter="pending_review" /> : null}
-        {active === "quotes-approved" ? <OwnerReviewDashboard statusFilter="approved" /> : null}
+        {active === "quotes-pending" ? <OwnerReviewDashboard view="pending_review" /> : null}
+        {active === "quotes-approved" ? <OwnerReviewDashboard view="approved" /> : null}
         {active === "collabs-pending" ? <CollaborationsReviewPanel statusFilter="pending" /> : null}
         {active === "collabs-approved" ? <CollaborationsReviewPanel statusFilter="approved" /> : null}
+        {active === "quotes-archived" ? <OwnerReviewDashboard view="archived" /> : null}
+        {active === "quotes-trash" ? <OwnerReviewDashboard view="trash" /> : null}
       </div>
     </div>
   );

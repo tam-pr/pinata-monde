@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+# A soft-deleted quote can be restored up to this long after deletion (see
+# app/main.py's restore_quote / _purge_expired_trash). Backend-enforced, not
+# a frontend timer: restore_quote itself rejects an expired quote, and
+# _purge_expired_trash permanently removes rows past this window.
+TRASH_RECOVERY_WINDOW = timedelta(days=3)
 
 
 class Quote(Base):
@@ -38,10 +44,24 @@ class Quote(Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="MXN")
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending_review")
     source: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Admin quote management (see app/main.py): NULL means "active" for both.
+    # A quote is never both archived and in the trash — soft-deleting clears
+    # archived_at, so restoring from the trash always lands back in the
+    # normal pending/approved lists, never silently back in "Archivadas".
+    # Naive UTC (no timezone=True) like AdminSession.expires_at below —
+    # compared directly against datetime.utcnow() in app/main.py, avoiding
+    # SQLite/Postgres tz round-trip inconsistencies.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     images: Mapped[list["QuoteImage"]] = relationship(back_populates="quote", cascade="all, delete-orphan")
+
+    @property
+    def deleted_until(self) -> datetime | None:
+        """When the 3-day recovery window for this trashed quote expires."""
+        return self.deleted_at + TRASH_RECOVERY_WINDOW if self.deleted_at else None
 
 
 class QuoteImage(Base):

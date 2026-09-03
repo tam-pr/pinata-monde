@@ -55,7 +55,7 @@ export default function NosotrosPage() {
           <div className="flex flex-col rounded-[var(--radius-lg)] border border-navy-20 bg-paper p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-magenta">Reconocimiento</p>
             <p className="mt-3 text-sm leading-6 text-ink-soft">Piñata Monde fue finalista del Premio Emprendedor COPARMEX 2024.</p>
-            <div className="mt-6 min-h-[320px] flex-1">
+            <div className="mt-6 lg:min-h-[320px] lg:flex-1">
               <AccordionGallery
                 items={RECOGNITION_GALLERY_ITEMS}
                 defaultIndex={3}

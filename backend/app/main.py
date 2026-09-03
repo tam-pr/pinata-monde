@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from uuid import uuid4
@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import Cookie, Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import (
@@ -23,7 +24,7 @@ from app.auth import (
 )
 from app.config import get_settings
 from app.db import get_db
-from app.models import AdminUser, Quote, QuoteImage
+from app.models import TRASH_RECOVERY_WINDOW, AdminUser, Quote, QuoteImage
 from app.schemas import (
     AdminLoginRequest,
     AdminMeResponse,
@@ -47,7 +48,10 @@ app.add_middleware(
     # (frontend and backend run on different ports/origins).
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH"],
-    allow_headers=["Content-Type"],
+    # ngrok-skip-browser-warning: sent by the frontend (see frontend/lib/api.ts)
+    # to bypass ngrok's HTML interstitial when this API is tunneled for remote
+    # access. Harmless to allow; it carries no sensitive data.
+    allow_headers=["Content-Type", "ngrok-skip-browser-warning"],
 )
 app.mount("/uploads", StaticFiles(directory=get_settings().upload_dir, check_dir=False), name="uploads")
 
@@ -100,6 +104,37 @@ def admin_me(current_admin: AdminUser = Depends(get_current_admin)) -> AdminMeRe
 
 def _validation_error(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+def _get_admin_quote_or_404(db: Session, quote_id: str) -> Quote:
+    quote = db.query(Quote).options(selectinload(Quote.images)).filter(Quote.id == quote_id).one_or_none()
+    if quote is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quote not found.")
+    return quote
+
+
+def _purge_quote(db: Session, quote: Quote) -> None:
+    """Permanently remove a quote: its reference image files, then the row
+    (QuoteImage rows cascade via the ORM relationship / FK)."""
+    for image in quote.images:
+        Path(image.path).unlink(missing_ok=True)
+    db.delete(quote)
+    db.commit()
+
+
+def _purge_expired_trash(db: Session) -> None:
+    """Permanently delete quotes whose 3-day trash recovery window has
+    passed. No standing scheduler exists in this project, so this runs as a
+    cheap sweep on every admin quotes listing — the safest way to enforce
+    the expiration without new background-worker infrastructure.
+    """
+    cutoff = datetime.utcnow() - TRASH_RECOVERY_WINDOW
+    expired = (
+        db.query(Quote).options(selectinload(Quote.images))
+        .filter(Quote.deleted_at.isnot(None), Quote.deleted_at < cutoff).all()
+    )
+    for quote in expired:
+        _purge_quote(db, quote)
 
 
 def _cents(value: Decimal) -> int:
@@ -251,8 +286,95 @@ def get_price_breakdown(
 
 
 @app.get("/admin/quotes", response_model=list[QuoteResponse])
-def list_quotes_for_review(db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> list[Quote]:
-    return db.query(Quote).options(selectinload(Quote.images)).order_by(Quote.created_at.desc()).all()
+def list_quotes_for_review(
+    view: str = Query("active", pattern="^(active|archived|trash)$"),
+    q: str | None = Query(default=None, max_length=200),
+    db: Session = Depends(get_db),
+    _admin: AdminUser = Depends(get_current_admin),
+) -> list[Quote]:
+    """`view`: "active" (default — the existing pending/approved tabs, i.e.
+    neither archived nor deleted), "archived", or "trash". `q`: case-
+    insensitive search across customer name, email, phone, quote ID, and
+    theme/design — matched in the database, not by filtering an
+    already-loaded list.
+    """
+    _purge_expired_trash(db)
+    query = db.query(Quote).options(selectinload(Quote.images))
+    if view == "active":
+        query = query.filter(Quote.archived_at.is_(None), Quote.deleted_at.is_(None))
+    elif view == "archived":
+        query = query.filter(Quote.archived_at.isnot(None), Quote.deleted_at.is_(None))
+    else:
+        query = query.filter(Quote.deleted_at.isnot(None))
+    if q and q.strip():
+        term = f"%{q.strip().lower()}%"
+        query = query.filter(or_(
+            func.lower(Quote.customer_name).like(term),
+            func.lower(Quote.email).like(term),
+            func.lower(Quote.phone).like(term),
+            func.lower(Quote.id).like(term),
+            func.lower(func.coalesce(Quote.theme, "")).like(term),
+        ))
+    return query.order_by(Quote.created_at.desc()).all()
+
+
+@app.post("/admin/quotes/{quote_id}/archive", response_model=QuoteResponse)
+def archive_quote(quote_id: str, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> Quote:
+    quote = _get_admin_quote_or_404(db, quote_id)
+    if quote.deleted_at is not None:
+        raise _validation_error("No se puede archivar una cotización que está en la papelera.")
+    if quote.archived_at is None:
+        quote.archived_at = datetime.utcnow()
+        db.commit()
+        db.refresh(quote)
+    return quote
+
+
+@app.post("/admin/quotes/{quote_id}/delete", response_model=QuoteResponse)
+def soft_delete_quote(quote_id: str, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> Quote:
+    """Move a quote to the trash. This never deletes the row — see
+    _purge_expired_trash (automatic, after 3 days) and purge_quote
+    (explicit, admin-triggered) for the only two paths that do.
+    """
+    quote = _get_admin_quote_or_404(db, quote_id)
+    if quote.deleted_at is None:
+        quote.deleted_at = datetime.utcnow()
+        # Trash is its own state, independent of "was it archived" — restoring
+        # from the trash always lands back in the normal active lists.
+        quote.archived_at = None
+        db.commit()
+        db.refresh(quote)
+    return quote
+
+
+@app.post("/admin/quotes/{quote_id}/restore", response_model=QuoteResponse)
+def restore_quote(quote_id: str, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> Quote:
+    """Restores from either the archive or the trash — a quote is never in
+    both at once (see soft_delete_quote), so which one applies is
+    unambiguous. A trashed quote past its 3-day recovery window is rejected
+    (it may not be purged yet if no listing has triggered the sweep since).
+    """
+    quote = _get_admin_quote_or_404(db, quote_id)
+    if quote.deleted_at is not None:
+        if quote.deleted_at + TRASH_RECOVERY_WINDOW < datetime.utcnow():
+            raise HTTPException(status_code=status.HTTP_410_GONE, detail="El plazo de recuperación de 3 días ya expiró.")
+        quote.deleted_at = None
+    elif quote.archived_at is not None:
+        quote.archived_at = None
+    else:
+        raise _validation_error("La cotización ya está activa.")
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+@app.post("/admin/quotes/{quote_id}/purge", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def purge_quote(quote_id: str, db: Session = Depends(get_db), _admin: AdminUser = Depends(get_current_admin)) -> None:
+    """"Eliminar permanentemente" — only from the trash, and irreversible."""
+    quote = _get_admin_quote_or_404(db, quote_id)
+    if quote.deleted_at is None:
+        raise _validation_error("Solo se puede eliminar permanentemente desde la papelera.")
+    _purge_quote(db, quote)
 
 
 @app.post("/quotes/{quote_id}/whatsapp-click", response_model=QuoteResponse)

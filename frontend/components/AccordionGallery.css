@@ -147,14 +147,28 @@
 }
 
 @media (max-width: 520px) {
-  .accordion-gallery {
+  /* Matches --fill's own specificity (.accordion-gallery.accordion-gallery--fill)
+     so the mobile stack always wins there too — otherwise a gallery using
+     --fill (a parent stretching it to match a sibling's height on desktop)
+     keeps that fixed height on mobile, crushing every panel down to its
+     84px min-height and severely cropping the photos. */
+  .accordion-gallery,
+  .accordion-gallery.accordion-gallery--fill {
     flex-direction: column;
     perspective: none;
     height: auto !important;
   }
 
   .ag-panel {
-    min-height: 84px;
+    /* A responsive aspect-ratio instead of the previous fixed 84px floor,
+       which left each stacked panel showing only a thin sliver of its
+       photo. The desktop rule's `flex: 1 1 0` pins flex-basis (height, in
+       this column layout) to 0, which stops aspect-ratio from sizing the
+       item — flex: none lets aspect-ratio (against the 100%-stretched
+       width) drive the height instead. */
+    flex: none;
+    aspect-ratio: 4 / 3;
+    min-height: 0;
     transform: none !important;
   }
 

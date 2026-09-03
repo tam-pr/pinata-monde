@@ -26,6 +26,8 @@ The business should be able to:
 
 The implemented MVP flow is: website quote → PostgreSQL + local reference images → complexity suggestion → transparent Python price suggestion → owner review at `/admin` → Odoo CRM lead.
 
+From the quote result, the customer can also click "Ordenar por WhatsApp": this opens a pre-filled `wa.me` chat (no WhatsApp Business API) and tags the *same* quote's source as WhatsApp — it never creates a new quote or an Odoo lead by itself. The lead is still only created once, on owner approval, same as any other quote; it just carries `Source: WhatsApp` instead of `Source: Website`.
+
 The AI only estimates image-design complexity. It does **not** approve a quote or determine the final price. Every new quote is `pending_review`; the owner can adjust complexity and/or final MXN price before approving it. The original AI score, confidence, reason, and model version are retained for future feedback/training.
 
 Pricing parameters are deliberately centralized at the top of `backend/app/services/pricing.py`, labeled as `REAL BUSINESS DATA`, `MARKET CALIBRATION`, or `TODO / PLACEHOLDER`. Odoo runs in idempotent local mock mode by default (`ODOO_MOCK=true`); real mode requires environment-provided credentials.
@@ -130,21 +132,21 @@ Estimated Price
 
 ### WhatsApp
 
-PENDING IMPLEMENTATION
-
-Provides a customer communication and quotation channel.
+Implemented as a plain `wa.me` click-to-chat link — deliberately **not** the WhatsApp Business API (no webhooks, no incoming-message handling, no Meta app).
 
 ```text
-Customer
+Customer clicks "Ordenar por WhatsApp"
    ↓
-WhatsApp
+wa.me link opens (pre-filled message) — client-side only
    ↓
-WhatsApp Business API
+POST /quotes/{id}/whatsapp-click — tags the existing quote's source, no new quote
    ↓
-FastAPI
+(same as any quote) owner approves at /admin
    ↓
-Odoo CRM
+Odoo CRM lead, Source: WhatsApp
 ```
+
+The number is `CONTACT.phoneHref` in [`frontend/lib/nav.ts`](frontend/lib/nav.ts) — the single place to update it; nothing else to configure, no backend env vars.
 
 ### Odoo
 
@@ -176,7 +178,7 @@ Tests: `backend/tests/test_odoo_connection.py` is **READ-ONLY** (calls only insp
 
 ### Admin Portal
 
-A Piñata Monde-branded interface for viewing relevant Odoo CRM/sales information.
+A Piñata Monde-branded interface (`/admin`) for reviewing and approving quotes, plus the relevant Odoo CRM/sales information for each one. Quotes can be searched (name, email, phone, folio, or design), archived, and soft-deleted — a deleted quote sits in a 3-day-recoverable trash before it (and its reference images) are permanently removed; the 3-day expiry is enforced server-side, not by a frontend timer.
 
 The project should not attempt to recreate the entire Odoo ERP.
 
@@ -225,15 +227,62 @@ Runs at `http://localhost:3000`. Log in at `/admin/login` with the `ADMIN_USERNA
 
 ### Sharing your local instance (ngrok)
 
-To give someone a public URL to your local frontend:
+Tunneling only port 3000 is not enough: `/cotizar` and `/admin` call the backend directly from the *browser*, so if `NEXT_PUBLIC_API_URL` still points at `localhost:8000`, that request tries to reach the visitor's own machine, not yours, and silently fails. The backend needs to be reachable too.
+
+This needs an ngrok authtoken configured once via `ngrok config add-authtoken YOUR_TOKEN` (from [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)) — it's stored in ngrok's own config (`~/Library/Application Support/ngrok/ngrok.yml` on macOS), never in this repo.
+
+**Most ngrok accounts (including the free tier) only get one public hostname at a time.** Starting a second `ngrok http` tunnel on such an account fails with `ERR_NGROK_334` ("endpoint already online") — the account has one hostname and every tunnel without an explicit different one competes for it. So there are two setups below: use the first unless you know you have two available public hostnames (e.g. a paid plan, or two reserved domains).
+
+#### Option A — one tunnel, proxied backend (works on any plan)
+
+Tunnel only the frontend. Next.js itself forwards `/api/*` server-side to your local backend (`frontend/next.config.ts`), so the browser only ever talks to the one public URL — no second hostname needed, and CORS doesn't even come into it (same-origin from the browser's point of view).
+
+```
+NEXT_PUBLIC_API_URL=/api
+```
+
+Restart `next dev` (Next.js inlines `NEXT_PUBLIC_*` vars at server start), then:
 
 ```bash
 ngrok http 3000
 ```
 
-This needs an ngrok authtoken configured once via `ngrok config add-authtoken YOUR_TOKEN` (from [dashboard.ngrok.com](https://dashboard.ngrok.com/get-started/your-authtoken)) — it's stored in ngrok's own config (`~/Library/Application Support/ngrok/ngrok.yml` on macOS), never in this repo.
+That's it — the printed `https://...ngrok-free.app` URL now serves a fully working `/cotizar` and `/admin`, reaching your local backend and Postgres through the proxy.
 
-A free ngrok account gets one public hostname. That's enough to show the static pages (home, `/catalogo`, `/nosotros`, `/contacto`) to anyone with the link. Pages that call the backend API from the browser — `/cotizar` and `/admin` — will only work for you, since `NEXT_PUBLIC_API_URL` still points at your machine's `localhost:8000`, which isn't reachable from someone else's browser.
+#### Option B — two tunnels, direct backend calls (needs two public hostnames)
+
+If your account/plan can hold two simultaneous public hostnames, add both to `ngrok.yml`:
+
+```yaml
+version: "3"
+agent:
+    authtoken: YOUR_TOKEN
+tunnels:
+    frontend:
+        proto: http
+        addr: 3000
+    backend:
+        proto: http
+        addr: 8000
+```
+
+```bash
+ngrok start --all
+```
+
+Then point the frontend straight at the backend's public URL (restart `next dev` after changing this):
+
+```
+NEXT_PUBLIC_API_URL=https://<your-backend-ngrok-domain>
+```
+
+...and allow the frontend's public URL in the backend's CORS config (restart `uvicorn` after changing this):
+
+```
+FRONTEND_ORIGIN=http://localhost:3000,http://127.0.0.1:3000,https://<your-frontend-ngrok-domain>
+```
+
+Either option's URLs are random and change on every ngrok restart unless you reserve a static domain on the ngrok dashboard — after any restart, re-check the printed URL(s) and update the env vars above to match.
 
 ## Repository Structure
 

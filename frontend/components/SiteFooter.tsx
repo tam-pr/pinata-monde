@@ -77,7 +77,7 @@ export function SiteFooter() {
       </Container>
       <div className="border-t border-navy-20">
         <Container className="py-5 text-center text-xs text-ink-soft sm:text-left">
-          Piñata Monde · Zona Metropolitana de Guadalajara
+          Piñata Monde · Calz Federalistas 2411-Piso 2, Jardines del Valle, 45138 Zapopan, Jal.
         </Container>
       </div>
     </footer>

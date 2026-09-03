@@ -44,6 +44,9 @@ class QuoteResponse(BaseModel):
     source: str
     odoo_lead_id: str | None
     odoo_status: str | None
+    archived_at: datetime | None
+    deleted_at: datetime | None
+    deleted_until: datetime | None
     created_at: datetime
     updated_at: datetime
     images: list[QuoteImageResponse]

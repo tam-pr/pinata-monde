@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import get_settings
 from app.db import Base
 from app.main import app
+from app.models import Quote
 from app.services import odoo as odoo_service
 
 
@@ -231,3 +232,249 @@ def test_price_breakdown_previews_an_owner_complexity_without_changing_quote(cli
     assert preview["complexity_score"] == 5
     assert preview["suggested_price_cents"] > original["estimated_price_cents"]
     assert client.get(f"/quotes/{quote_id}").json()["complexity_score"] == original["complexity_score"]
+
+
+# ============================================================
+# Admin quote management: search, archive, and the trash's 3-day recovery.
+# ============================================================
+
+def _backdate_deleted_at(quote_id: str, when: datetime) -> None:
+    """Simulate time having passed since a soft-delete, directly in the same
+    in-memory DB the `client` fixture set up — the only way to exercise the
+    3-day recovery window without literally waiting 3 days."""
+    import app.db as db_module
+
+    session = db_module._session_factory()
+    try:
+        quote = session.get(Quote, quote_id)
+        quote.deleted_at = when
+        session.commit()
+    finally:
+        session.close()
+
+
+def test_search_finds_quote_by_customer_name_case_insensitively(client: TestClient):
+    target = client.post("/quotes", data=quote_payload() | {"customer_name": "Karina Solórzano"}).json()
+    other = client.post("/quotes", data=quote_payload() | {"customer_name": "Beto Ramírez", "email": "beto@example.com"}).json()
+
+    results = client.get("/admin/quotes?q=KARINA").json()
+    ids = {q["id"] for q in results}
+    assert target["id"] in ids
+    assert other["id"] not in ids
+
+
+def test_search_finds_quote_by_email(client: TestClient):
+    target = client.post("/quotes", data=quote_payload() | {"email": "unica-cliente@example.com"}).json()
+    other = client.post("/quotes", data=quote_payload() | {"email": "otra@example.com"}).json()
+
+    results = client.get("/admin/quotes?q=unica-cliente").json()
+    ids = {q["id"] for q in results}
+    assert target["id"] in ids
+    assert other["id"] not in ids
+
+
+def test_search_finds_quote_by_phone(client: TestClient):
+    target = client.post("/quotes", data=quote_payload() | {"phone": "3319998877"}).json()
+    other = client.post("/quotes", data=quote_payload() | {"phone": "3300001111"}).json()
+
+    results = client.get("/admin/quotes?q=9998877").json()
+    ids = {q["id"] for q in results}
+    assert target["id"] in ids
+    assert other["id"] not in ids
+
+
+def test_search_finds_quote_by_id(client: TestClient):
+    target = client.post("/quotes", data=quote_payload()).json()
+    other = client.post("/quotes", data=quote_payload() | {"email": "otra2@example.com"}).json()
+
+    results = client.get(f"/admin/quotes?q={target['id']}").json()
+    ids = {q["id"] for q in results}
+    assert ids == {target["id"]}
+    assert other["id"] not in ids
+
+
+def test_search_finds_quote_by_design_theme(client: TestClient):
+    target = client.post("/quotes", data=quote_payload() | {"theme": "Sirena rosa"}).json()
+    other = client.post("/quotes", data=quote_payload() | {"theme": "Dinosaurio verde", "email": "otra3@example.com"}).json()
+
+    results = client.get("/admin/quotes?q=sirena").json()
+    ids = {q["id"] for q in results}
+    assert target["id"] in ids
+    assert other["id"] not in ids
+
+
+def test_search_unauthenticated_is_rejected(client: TestClient):
+    client.post("/admin/logout")
+    response = client.get("/admin/quotes?q=ana")
+    assert response.status_code == 401
+
+
+def test_archive_quote_moves_it_out_of_active_into_archived_view(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+
+    response = client.post(f"/admin/quotes/{quote_id}/archive")
+    assert response.status_code == 200
+    assert response.json()["archived_at"] is not None
+
+    active_ids = {q["id"] for q in client.get("/admin/quotes?view=active").json()}
+    archived_ids = {q["id"] for q in client.get("/admin/quotes?view=archived").json()}
+    assert quote_id not in active_ids
+    assert quote_id in archived_ids
+
+
+def test_restore_archived_quote_returns_it_to_active(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+    client.post(f"/admin/quotes/{quote_id}/archive")
+
+    response = client.post(f"/admin/quotes/{quote_id}/restore")
+    assert response.status_code == 200
+    assert response.json()["archived_at"] is None
+
+    active_ids = {q["id"] for q in client.get("/admin/quotes?view=active").json()}
+    archived_ids = {q["id"] for q in client.get("/admin/quotes?view=archived").json()}
+    assert quote_id in active_ids
+    assert quote_id not in archived_ids
+
+
+def test_soft_delete_quote_moves_it_to_trash_and_keeps_its_data(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+
+    response = client.post(f"/admin/quotes/{quote_id}/delete")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["deleted_at"] is not None
+    assert body["deleted_until"] is not None
+    # All quote data is preserved, not stripped, by a soft delete.
+    assert body["customer_name"] == created["customer_name"]
+    assert body["email"] == created["email"]
+    assert body["description"] == created["description"]
+
+    active_ids = {q["id"] for q in client.get("/admin/quotes?view=active").json()}
+    assert quote_id not in active_ids
+
+
+def test_deleted_quote_appears_in_trash_view_with_deletion_details(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+    client.post(f"/admin/quotes/{quote_id}/delete")
+
+    trash = client.get("/admin/quotes?view=trash").json()
+    match = next((q for q in trash if q["id"] == quote_id), None)
+    assert match is not None
+    assert match["deleted_at"] is not None
+    assert match["deleted_until"] is not None
+    assert match["customer_name"] == created["customer_name"]
+
+
+def test_restore_deleted_quote_within_three_days(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    _backdate_deleted_at(quote_id, datetime.utcnow() - timedelta(days=2))  # still within the window
+
+    response = client.post(f"/admin/quotes/{quote_id}/restore")
+    assert response.status_code == 200
+    assert response.json()["deleted_at"] is None
+    assert response.json()["status"] == "pending_review"  # its original status, untouched
+
+    active_ids = {q["id"] for q in client.get("/admin/quotes?view=active").json()}
+    trash_ids = {q["id"] for q in client.get("/admin/quotes?view=trash").json()}
+    assert quote_id in active_ids
+    assert quote_id not in trash_ids
+
+
+def test_deleted_quote_cannot_be_restored_after_three_days(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    _backdate_deleted_at(quote_id, datetime.utcnow() - timedelta(days=3, minutes=1))  # just past the window
+
+    response = client.post(f"/admin/quotes/{quote_id}/restore")
+    assert response.status_code == 410
+
+
+def test_expired_deleted_quote_is_permanently_removed_when_the_dashboard_is_accessed(client: TestClient):
+    created = client.post("/quotes", data=quote_payload(), files=[("images", ("idea.png", b"image", "image/png"))]).json()
+    quote_id = created["id"]
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    _backdate_deleted_at(quote_id, datetime.utcnow() - timedelta(days=3, minutes=1))
+
+    # No standing worker — accessing any admin quotes listing triggers the sweep.
+    client.get("/admin/quotes?view=trash")
+
+    assert client.get(f"/quotes/{quote_id}").status_code == 404
+    trash_ids = {q["id"] for q in client.get("/admin/quotes?view=trash").json()}
+    assert quote_id not in trash_ids
+
+
+def test_permanently_deleting_from_trash_is_immediate_and_only_allowed_from_trash(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+
+    # Cannot purge an active (non-trashed) quote.
+    assert client.post(f"/admin/quotes/{quote_id}/purge").status_code == 422
+
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    response = client.post(f"/admin/quotes/{quote_id}/purge")
+    assert response.status_code == 204
+    assert client.get(f"/quotes/{quote_id}").status_code == 404
+
+
+def test_archive_delete_restore_endpoints_require_admin_auth(client: TestClient):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+    client.post("/admin/logout")
+
+    assert client.post(f"/admin/quotes/{quote_id}/archive").status_code == 401
+    assert client.post(f"/admin/quotes/{quote_id}/delete").status_code == 401
+    assert client.post(f"/admin/quotes/{quote_id}/restore").status_code == 401
+    assert client.post(f"/admin/quotes/{quote_id}/purge").status_code == 401
+
+
+def test_archiving_then_restoring_and_approving_creates_only_one_odoo_lead(client: TestClient, monkeypatch):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+
+    captured_payloads = []
+    monkeypatch.setattr(odoo_service.logger, "info", lambda msg, lead_id, payload: captured_payloads.append(payload))
+
+    client.post(f"/admin/quotes/{quote_id}/archive")
+    client.post(f"/admin/quotes/{quote_id}/restore")
+    reviewed = client.patch(f"/admin/quotes/{quote_id}/review", json={"final_price_cents": 210000})
+    assert reviewed.status_code == 200
+    assert reviewed.json()["odoo_lead_id"] == f"mock-{quote_id}"
+    assert len(captured_payloads) == 1
+
+    # Archiving and restoring an already-approved quote must not touch Odoo again.
+    client.post(f"/admin/quotes/{quote_id}/archive")
+    client.post(f"/admin/quotes/{quote_id}/restore")
+    reapproved = client.patch(f"/admin/quotes/{quote_id}/review", json={})
+    assert reapproved.status_code == 200
+    assert reapproved.json()["odoo_lead_id"] == reviewed.json()["odoo_lead_id"]
+    assert len(captured_payloads) == 1
+
+
+def test_soft_deleting_then_restoring_and_approving_creates_only_one_odoo_lead(client: TestClient, monkeypatch):
+    created = client.post("/quotes", data=quote_payload()).json()
+    quote_id = created["id"]
+
+    captured_payloads = []
+    monkeypatch.setattr(odoo_service.logger, "info", lambda msg, lead_id, payload: captured_payloads.append(payload))
+
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    client.post(f"/admin/quotes/{quote_id}/restore")
+    reviewed = client.patch(f"/admin/quotes/{quote_id}/review", json={"final_price_cents": 210000})
+    assert reviewed.status_code == 200
+    assert len(captured_payloads) == 1
+
+    # Deleting and restoring an already-approved (already-leaded) quote must
+    # not create a second Odoo lead.
+    client.post(f"/admin/quotes/{quote_id}/delete")
+    client.post(f"/admin/quotes/{quote_id}/restore")
+    reapproved = client.patch(f"/admin/quotes/{quote_id}/review", json={})
+    assert reapproved.status_code == 200
+    assert reapproved.json()["odoo_lead_id"] == reviewed.json()["odoo_lead_id"]
+    assert len(captured_payloads) == 1

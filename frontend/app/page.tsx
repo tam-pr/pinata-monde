@@ -230,10 +230,12 @@ export default function Home() {
           />
           <ul className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {TESTIMONIALS.map((testimonial) => (
-              <li key={testimonial.name + testimonial.detail} className="rounded-[var(--radius-md)] bg-white p-6 ring-1 ring-navy-20">
+              <li key={testimonial.name + testimonial.detail} className="flex h-full flex-col rounded-[var(--radius-md)] bg-white p-6 ring-1 ring-navy-20">
                 <p className="text-sm leading-6 text-ink-soft">&ldquo;{testimonial.quote}&rdquo;</p>
-                <p className="mt-4 text-sm font-semibold text-navy">{testimonial.name}</p>
-                <p className="text-xs text-ink-soft">{testimonial.detail}</p>
+                <div className="mt-auto pt-4">
+                  <p className="text-sm font-semibold text-navy">{testimonial.name}</p>
+                  <p className="text-xs text-ink-soft">{testimonial.detail}</p>
+                </div>
               </li>
             ))}
           </ul>
