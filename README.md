@@ -239,7 +239,10 @@ Tunnel only the frontend. Next.js itself forwards `/api/*` server-side to your l
 
 ```
 NEXT_PUBLIC_API_URL=/api
+NEXT_PUBLIC_SITE_URL=https://<your-frontend-ngrok-domain>
 ```
+
+`NEXT_PUBLIC_SITE_URL` only affects link previews (e.g. WhatsApp) — set it once you know the printed URL below (see next step), then restart. Without it, a shared link's preview image will fail to load, since it'd resolve to `localhost`.
 
 Restart `next dev` (Next.js inlines `NEXT_PUBLIC_*` vars at server start), then:
 
