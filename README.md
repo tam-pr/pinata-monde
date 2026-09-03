@@ -130,6 +130,8 @@ Estimated Price
 
 ### WhatsApp
 
+PENDING IMPLEMENTATION
+
 Provides a customer communication and quotation channel.
 
 ```text
