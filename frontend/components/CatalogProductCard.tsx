@@ -7,7 +7,7 @@ const ACCENTS = ["bg-paper", "bg-magenta-20", "bg-navy-20"] as const;
 export function CatalogProductCard({ category, product, index }: { category: CatalogCategory; product: CatalogProduct; index: number }) {
   return (
     <Link href={`/catalogo/${category.slug}/${product.slug}`} className="group flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-navy-20 bg-white transition-colors hover:border-magenta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-magenta focus-visible:ring-offset-4">
-      <div className={cn("flex aspect-[4/3] items-center justify-center p-6", !product.image && ACCENTS[index % ACCENTS.length])} aria-hidden>
+      <div className={cn("flex items-center justify-center", product.image ? "aspect-square p-4" : "aspect-[4/3] p-6", !product.image && ACCENTS[index % ACCENTS.length])} aria-hidden>
         {product.image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={product.image} alt="" className="h-full w-full object-contain" />
